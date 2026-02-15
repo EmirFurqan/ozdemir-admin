@@ -17,7 +17,11 @@ export const metadata: Metadata = {
       { url: '/LogoO.svg', media: '(prefers-color-scheme: light)' },
       { url: '/LogoOBeyaz.svg', media: '(prefers-color-scheme: dark)' },
     ]
-  }
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({
