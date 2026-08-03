@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
-import { bulkAssignGroupAction } from "@/app/actions/productGroup";
+import { bulkAssignGroupAction, deleteProductGroupAction } from "@/app/actions/productGroup";
 import {
     ArrowLeft,
     Save,
@@ -62,6 +63,7 @@ export default function ProductGroupEditor({
     products: any[];
     allProducts: any[];
 }) {
+    const router = useRouter();
     const [saving, setSaving] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -367,6 +369,25 @@ export default function ProductGroupEditor({
         }
     };
 
+    const handleDeleteGroup = async () => {
+        const confirmed = window.confirm(
+            `"${groupName || groupCode}" isimli ürün grubunu silmek istediğinizden emin misiniz?\n\nNOT: Grubun içindeki ürünler SİLİNMEYECEK, yalnızca grup bağları kaldırılacaktır.`
+        );
+        if (!confirmed) return;
+
+        try {
+            const res = await deleteProductGroupAction(groupId);
+            if (res.success) {
+                router.push("/product-groups");
+            } else {
+                alert(res.message || "Grup silinirken hata oluştu.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Grup silinirken beklenmeyen bir hata oluştu.");
+        }
+    };
+
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-16">
             {/* Header Navigation */}
@@ -391,24 +412,35 @@ export default function ProductGroupEditor({
                     </div>
                 </div>
 
-                <Button
-                    type="button"
-                    onClick={handleSaveGroupAndSync}
-                    disabled={saving}
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-sm px-7 py-3 rounded-xl shadow-sm transition-all"
-                >
-                    {saving ? (
-                        <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                            Tüm Gruba Senkronize Ediliyor...
-                        </>
-                    ) : (
-                        <>
-                            <Save className="w-4 h-4 mr-2" />
-                            Tüm Gruba Uygula ve Kaydet
-                        </>
-                    )}
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleDeleteGroup}
+                        className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold text-sm px-4 py-3 rounded-xl transition-all cursor-pointer"
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Grubu Sil
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSaveGroupAndSync}
+                        disabled={saving}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold text-sm px-7 py-3 rounded-xl shadow-sm transition-all cursor-pointer"
+                    >
+                        {saving ? (
+                            <>
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                Tüm Gruba Senkronize Ediliyor...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-4 h-4 mr-2" />
+                                Tüm Gruba Uygula ve Kaydet
+                            </>
+                        )}
+                    </Button>
+                </div>
             </div>
 
             {/* Status Message */}

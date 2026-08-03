@@ -1,6 +1,7 @@
 import { getProductGroups } from "@/app/actions/productGroup";
 import { Button } from "@/components/ui/button";
 import SearchBar from "@/app/components/SearchBar";
+import GroupDeleteButton from "./GroupDeleteButton";
 import { Plus, Edit, Layers, Filter, X } from "lucide-react";
 import Link from "next/link";
 
@@ -101,16 +102,19 @@ export default async function ProductGroupsPage({
                                         {group.name}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <Link href={`/product-groups/${group.id}`}>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 w-8 p-0 bg-white border-slate-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 cursor-pointer"
-                                                title="Grup Düzenle"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </Button>
-                                        </Link>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <Link href={`/product-groups/${group.id}`}>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 bg-white border-slate-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 cursor-pointer"
+                                                    title="Grup Düzenle"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                </Button>
+                                            </Link>
+                                            <GroupDeleteButton groupId={group.id} groupName={group.name} />
+                                        </div>
                                     </td>
                                 </tr>
                             ))

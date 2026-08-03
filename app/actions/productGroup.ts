@@ -210,3 +210,16 @@ export async function bulkAssignGroupAction(payload: any) {
     }
 }
 
+export async function deleteProductGroupAction(id: number) {
+    try {
+        await fetchAPI(`/product-groups/${id}`, {
+            method: "DELETE",
+        });
+        revalidatePath("/product-groups");
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to delete product group:", error);
+        return { success: false, message: error.message || "Ürün grubu silinirken hata oluştu." };
+    }
+}
+
