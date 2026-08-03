@@ -185,11 +185,23 @@ export async function updateProductErpInfo(productId: number, code: string, logo
         // 1. Fetch current product
         const product = await fetchAPI(`/products/${productId}`);
         
-        // 2. Update specific fields
+        // 2. Update specific fields safely
         const updatedProduct = {
-            ...product,
+            name: product.name,
             code: code,
-            logoLogicalRef: logoLogicalRef
+            price: product.price,
+            stock: product.stock,
+            description: product.description,
+            currency: product.currency,
+            vatRate: product.vatRate,
+            logoLogicalRef: logoLogicalRef,
+            brand: product.brand ? { id: product.brand.id } : null,
+            category: product.category ? { id: product.category.id } : null,
+            variantLabel: product.variantLabel,
+            group: product.group ? { id: product.group.id } : null,
+            features: product.features || [],
+            images: product.images || [],
+            documents: product.documents || []
         };
 
         // 3. Save
