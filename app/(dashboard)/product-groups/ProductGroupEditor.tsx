@@ -23,7 +23,9 @@ import {
     Info,
     ExternalLink,
     Upload,
-    Loader2
+    Loader2,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
 
@@ -288,6 +290,18 @@ export default function ProductGroupEditor({
         if (updated.length > 0 && !updated.some((img) => img.isMain)) {
             updated[0].isMain = true;
         }
+        setImages(updated);
+    };
+
+    const handleMoveImage = (idx: number, direction: "left" | "right") => {
+        if (direction === "left" && idx === 0) return;
+        if (direction === "right" && idx === images.length - 1) return;
+        const targetIdx = direction === "left" ? idx - 1 : idx + 1;
+        const updated = [...images];
+        const temp = updated[idx];
+        updated[idx] = updated[targetIdx];
+        updated[targetIdx] = temp;
+        updated.forEach((img, i) => (img.displayOrder = i));
         setImages(updated);
     };
 
@@ -574,7 +588,27 @@ export default function ProductGroupEditor({
                                                 unoptimized
                                             />
                                         </div>
-                                        <div className="w-full flex items-center justify-between">
+                                        <div className="w-full flex items-center justify-between gap-1">
+                                            <div className="flex items-center gap-0.5">
+                                                <button
+                                                    type="button"
+                                                    disabled={idx === 0}
+                                                    onClick={() => handleMoveImage(idx, "left")}
+                                                    className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                                                    title="Sola Taşı"
+                                                >
+                                                    <ChevronLeft className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={idx === images.length - 1}
+                                                    onClick={() => handleMoveImage(idx, "right")}
+                                                    className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                                                    title="Sağa Taşı"
+                                                >
+                                                    <ChevronRight className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => handleSetMainImage(idx)}
@@ -588,6 +622,7 @@ export default function ProductGroupEditor({
                                                 type="button"
                                                 onClick={() => handleRemoveImage(idx)}
                                                 className="text-slate-400 hover:text-red-600 p-1 cursor-pointer"
+                                                title="Resmi Sil"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>

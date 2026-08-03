@@ -8,10 +8,10 @@ export default async function EditProductGroupPage({ params }: { params: Promise
     const groupId = parseInt(id, 10);
 
     // Fetch data in parallel
-    const [group, groupProducts, allProductsRes] = await Promise.all([
+    // Fetch group & group products in parallel for fast page render
+    const [group, groupProducts] = await Promise.all([
         getProductGroupById(groupId),
-        getGroupProducts(groupId),
-        productService.getProducts({ size: 1000 })
+        getGroupProducts(groupId)
     ]);
 
     if (!group) {
@@ -24,7 +24,7 @@ export default async function EditProductGroupPage({ params }: { params: Promise
                 group={group}
                 groupId={groupId}
                 products={groupProducts}
-                allProducts={allProductsRes?.content || []}
+                allProducts={[]}
             />
         </div>
     );
