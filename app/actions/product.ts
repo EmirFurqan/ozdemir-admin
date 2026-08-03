@@ -185,7 +185,9 @@ export async function updateProductErpInfo(productId: number, code: string, logo
         // 1. Fetch current product
         const product = await fetchAPI(`/products/${productId}`);
         
-        // 2. Update specific fields safely
+        // 2. Update specific fields safely (partial update)
+        // Omitting images, features, documents so backend doesn't try to parse them
+        // and doesn't clear them (thanks to backend fix).
         const updatedProduct = {
             name: product.name,
             code: code,
@@ -198,10 +200,7 @@ export async function updateProductErpInfo(productId: number, code: string, logo
             brand: product.brand ? { id: product.brand.id } : null,
             category: product.category ? { id: product.category.id } : null,
             variantLabel: product.variantLabel,
-            group: product.group ? { id: product.group.id } : null,
-            features: product.features || [],
-            images: product.images || [],
-            documents: product.documents || []
+            group: product.group ? { id: product.group.id } : null
         };
 
         // 3. Save
