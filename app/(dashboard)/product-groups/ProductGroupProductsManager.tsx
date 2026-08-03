@@ -23,6 +23,7 @@ interface GroupFeature {
 
 interface VariantProduct {
     productId: number;
+    name: string;
     variantLabel: string;
     code: string;
     price: number;
@@ -57,6 +58,7 @@ export default function ProductGroupProductsManager({
             setVariants(
                 products.map((p) => ({
                     productId: p.id,
+                    name: p.name || "",
                     variantLabel: p.variantLabel || "",
                     code: p.code || "",
                     price: p.price || 0,
@@ -115,7 +117,8 @@ export default function ProductGroupProductsManager({
             ...variants,
             {
                 productId: prod.id,
-                variantLabel: prod.variantLabel || prod.name || "",
+                name: prod.name || "",
+                variantLabel: prod.variantLabel || "",
                 code: prod.code || "",
                 price: prod.price || 0,
                 stock: prod.stock || 0,
@@ -426,8 +429,9 @@ export default function ProductGroupProductsManager({
                     <table className="w-full text-xs text-left">
                         <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
                             <tr>
-                                <th className="px-4 py-3">Ürün ID / Kod</th>
-                                <th className="px-4 py-3">Varyant Etiketi (Farklı Olabilir)</th>
+                                <th className="px-4 py-3 w-20">ID / Kod</th>
+                                <th className="px-4 py-3">Ürün İsmi</th>
+                                <th className="px-4 py-3">Varyant Etiketi</th>
                                 <th className="px-4 py-3 w-28">Fiyat</th>
                                 <th className="px-4 py-3 w-24">Stok</th>
                                 <th className="px-4 py-3 text-right">İşlem</th>
@@ -436,8 +440,17 @@ export default function ProductGroupProductsManager({
                         <tbody className="divide-y divide-slate-100">
                             {variants.map((v, idx) => (
                                 <tr key={v.productId} className="hover:bg-slate-50/80">
-                                    <td className="px-4 py-3 font-mono text-slate-600 font-medium">
-                                        #{v.productId} <span className="text-slate-400 font-normal">({v.code})</span>
+                                    <td className="px-4 py-3 font-mono text-slate-600 font-medium text-xs">
+                                        #{v.productId}<br/><span className="text-slate-400 font-normal">{v.code}</span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Input
+                                            type="text"
+                                            value={v.name}
+                                            onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
+                                            placeholder="Ürün ismi..."
+                                            className="bg-white text-xs text-slate-900 border-slate-300"
+                                        />
                                     </td>
                                     <td className="px-4 py-3">
                                         <Input
