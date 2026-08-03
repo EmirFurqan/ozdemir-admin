@@ -193,3 +193,20 @@ export async function removeProductFromGroup(productId: number) {
         return { success: false, message: "Ürün gruptan çıkarılamadı." };
     }
 }
+
+export async function bulkAssignGroupAction(payload: any) {
+    try {
+        const result = await fetchAPI("/product-groups/bulk-assign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        revalidatePath("/product-groups");
+        revalidatePath(`/product-groups/${payload.groupId || ''}`);
+        return { success: true, group: result };
+    } catch (error: any) {
+        console.error("Failed to bulk assign group:", error);
+        return { success: false, message: error.message || "Grup senkronize edilirken hata oluştu." };
+    }
+}
+

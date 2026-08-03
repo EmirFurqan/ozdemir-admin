@@ -33,6 +33,7 @@ export default async function EditProductGroupPage({ params }: { params: Promise
                 {/* Right Column: Products Manager */}
                 <div className="lg:col-span-2">
                     <ProductGroupProductsManager
+                        group={group}
                         groupId={groupId}
                         products={groupProducts}
                         allProducts={allProductsRes.content}
