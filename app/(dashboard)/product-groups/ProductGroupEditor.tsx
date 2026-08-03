@@ -46,6 +46,7 @@ interface GroupFeature {
 
 interface VariantProduct {
     productId: number;
+    name: string;
     variantLabel: string;
     code: string;
     price: number;
@@ -157,6 +158,7 @@ export default function ProductGroupEditor({
             setVariants(
                 products.map((p) => ({
                     productId: p.id,
+                    name: p.name || "",
                     variantLabel: p.variantLabel || "",
                     code: p.code || "",
                     price: p.price || 0,
@@ -216,7 +218,8 @@ export default function ProductGroupEditor({
             ...variants,
             {
                 productId: prod.id,
-                variantLabel: prod.variantLabel || prod.name || "",
+                name: prod.name || "",
+                variantLabel: prod.variantLabel || "",
                 code: prod.code || "",
                 price: prod.price || 0,
                 stock: prod.stock || 0,
@@ -769,8 +772,9 @@ export default function ProductGroupEditor({
                     <table className="w-full text-xs text-left">
                         <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
                             <tr>
-                                <th className="p-3.5">Ürün ID / Kod</th>
-                                <th className="p-3.5">Varyant Etiketi (Farklı Olabilir)</th>
+                                <th className="p-3.5 w-20">ID / Kod</th>
+                                <th className="p-3.5">Ürün İsmi</th>
+                                <th className="p-3.5">Varyant Etiketi</th>
                                 <th className="p-3.5 w-32">Fiyat</th>
                                 <th className="p-3.5 w-28">Stok</th>
                                 <th className="p-3.5 text-right w-24">İşlem</th>
@@ -786,16 +790,24 @@ export default function ProductGroupEditor({
                             ) : (
                                 variants.map((v, idx) => (
                                     <tr key={v.productId} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="p-3.5 font-mono text-slate-700 font-medium">
-                                            #{v.productId}{" "}
-                                            <span className="text-slate-400 font-normal">({v.code})</span>
+                                        <td className="p-3.5 font-mono text-slate-700 font-medium text-xs">
+                                            #{v.productId}<br/><span className="text-slate-400 font-normal">{v.code}</span>
+                                        </td>
+                                        <td className="p-3.5">
+                                            <Input
+                                                type="text"
+                                                value={v.name}
+                                                onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
+                                                placeholder="Ürün ismi..."
+                                                className="bg-white text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20 mb-1"
+                                            />
                                         </td>
                                         <td className="p-3.5">
                                             <Input
                                                 type="text"
                                                 value={v.variantLabel}
                                                 onChange={(e) => handleUpdateVariant(idx, "variantLabel", e.target.value)}
-                                                placeholder="Örn: 10 mm veya Nozzle 1.5"
+                                                placeholder="Örn: 10 mm"
                                                 className="bg-white text-xs font-semibold text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
                                             />
                                         </td>
