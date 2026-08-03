@@ -179,3 +179,30 @@ export async function deleteProduct(id: number) {
         return { success: false, message: "Ürün silinemedi." };
     }
 }
+
+export async function updateProductErpInfo(productId: number, code: string, logoLogicalRef: number | null) {
+    try {
+        // 1. Fetch current product
+        const product = await fetchAPI(`/products/${productId}`);
+        
+        // 2. Update specific fields
+        const updatedProduct = {
+            ...product,
+            code: code,
+            logoLogicalRef: logoLogicalRef
+        };
+
+        // 3. Save
+        await fetchAPI(`/products/${productId}`, {
+            method: "PUT",
+            body: JSON.stringify(updatedProduct)
+        });
+
+        revalidatePath("/products");
+        revalidatePath("/erp-matcher");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to update product ERP info:", error);
+        return { success: false, message: "Ürün ERP bilgileri güncellenemedi." };
+    }
+}

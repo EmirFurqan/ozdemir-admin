@@ -91,6 +91,7 @@ export function Sidebar({ user }: SidebarProps) {
                     items: [
                         { title: "Tüm Ürünler", href: "/products" },
                         { title: "Grup Yönetimi", href: "/product-groups" },
+                        { title: "ERP Eşleştirme", href: "/erp-matcher" },
                         { title: "Yeni Ürün Ekle", href: "/products/new" }
                     ]
                 },
