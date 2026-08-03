@@ -6,6 +6,8 @@ import { updateProductErpInfo } from '@/app/actions/product';
 import { Search, Upload, Link as LinkIcon, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface Product {
     id: number;
