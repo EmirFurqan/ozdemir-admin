@@ -20,6 +20,7 @@ export interface Product {
     code: string;
     slug: string;
     description?: string;
+    groupCode?: string;
     groupName?: string;
     imageUrl?: string;
     images?: ProductImage[];
@@ -38,15 +39,15 @@ export interface Product {
 }
 
 export const productService = {
-    getProducts: async ({ page = 0, size = 10, search = "", brandId = null, categoryId = null } = {}) => {
+    getProducts: async ({ page = 0, size = 20, search = "", brandId = null, categoryId = null, grouped = true }: { page?: number; size?: number; search?: string; brandId?: string | number | null; categoryId?: string | number | null; grouped?: boolean } = {}) => {
         const query = new URLSearchParams({
             page: page.toString(),
             size: size.toString(),
-            grouped: "false",
+            grouped: grouped ? "true" : "false",
         });
         if (search) query.append("search", search);
-        if (brandId) query.append("brandId", brandId);
-        if (categoryId) query.append("categoryId", categoryId);
+        if (brandId) query.append("brandId", brandId.toString());
+        if (categoryId) query.append("categoryId", categoryId.toString());
 
         return fetchAPI(`/products?${query.toString()}`);
     },
