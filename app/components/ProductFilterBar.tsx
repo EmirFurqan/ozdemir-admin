@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo } from "react";
 import SearchBar from "./SearchBar";
-import { RotateCcw, Layers } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 interface BrandOption {
     id: number;
@@ -29,7 +29,6 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
     const currentSearch = searchParams.get("search") || "";
     const currentBrandId = searchParams.get("brandId") || "";
     const currentCategoryId = searchParams.get("categoryId") || "";
-    const currentGrouped = searchParams.get("grouped") !== "false"; // default to true
 
     // Filter categories dynamically based on selected brand
     const filteredCategories = useMemo(() => {
@@ -88,30 +87,19 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
         [searchParams, router]
     );
 
-    const toggleGrouped = useCallback(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (currentGrouped) {
-            params.set("grouped", "false");
-        } else {
-            params.delete("grouped"); // default is true
-        }
-        params.delete("page");
-        router.push("?" + params.toString());
-    }, [currentGrouped, searchParams, router]);
-
     const resetFilters = useCallback(() => {
         sessionStorage.removeItem("admin_products_filter");
         router.push("/products");
     }, [router]);
 
-    const hasActiveFilters = currentSearch || currentBrandId || currentCategoryId || !currentGrouped;
+    const hasActiveFilters = currentSearch || currentBrandId || currentCategoryId;
 
     return (
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 space-y-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 {/* Search input */}
                 <div className="w-full md:w-80">
-                    <SearchBar defaultValue={currentSearch} placeholder="Ürün adı, kodu veya grup kodu ara..." />
+                    <SearchBar defaultValue={currentSearch} placeholder="Ürün adı, kodu veya açıklama ara..." />
                 </div>
 
                 {/* Filter dropdowns */}
@@ -147,21 +135,6 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
                             ))}
                         </select>
                     </div>
-
-                    {/* Grouped Toggle */}
-                    <button
-                        type="button"
-                        onClick={toggleGrouped}
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium border transition-all ${
-                            currentGrouped
-                                ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                                : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
-                        }`}
-                        title="Varyasyonlu ürünleri tek kart olarak grupla veya tüm varyasyonları listele"
-                    >
-                        <Layers className="w-4 h-4" />
-                        {currentGrouped ? "Gruplı Görünüm (Aktif)" : "Tüm Ürünler"}
-                    </button>
 
                     {/* Reset Filters */}
                     {hasActiveFilters && (

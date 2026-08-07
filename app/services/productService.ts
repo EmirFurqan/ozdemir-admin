@@ -39,7 +39,7 @@ export interface Product {
 }
 
 export const productService = {
-    getProducts: async ({ page = 0, size = 20, search = "", brandId = null, categoryId = null, grouped = true }: { page?: number; size?: number; search?: string; brandId?: string | number | null; categoryId?: string | number | null; grouped?: boolean } = {}) => {
+    getProducts: async ({ page = 0, size = 20, search = "", brandId = null, categoryId = null, grouped = false }: { page?: number; size?: number; search?: string; brandId?: string | number | null; categoryId?: string | number | null; grouped?: boolean } = {}) => {
         const query = new URLSearchParams({
             page: page.toString(),
             size: size.toString(),

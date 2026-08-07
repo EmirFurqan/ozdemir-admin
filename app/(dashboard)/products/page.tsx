@@ -16,14 +16,13 @@ export const dynamic = 'force-dynamic';
 export default async function ProductsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ page?: string; search?: string; brandId?: string; categoryId?: string; grouped?: string }>;
+    searchParams: Promise<{ page?: string; search?: string; brandId?: string; categoryId?: string }>;
 }) {
     const params = await searchParams;
     const page = Number(params.page) || 0;
     const search = params.search || "";
     const brandId = params.brandId || "";
     const categoryId = params.categoryId || "";
-    const grouped = params.grouped !== "false";
 
     let products: Product[] = [];
     let totalPages = 0;
@@ -32,7 +31,7 @@ export default async function ProductsPage({
 
     try {
         const [productsData, brandsData, categoriesData] = await Promise.all([
-            productService.getProducts({ page, size: 20, search, brandId, categoryId, grouped }),
+            productService.getProducts({ page, size: 25, search, brandId, categoryId, grouped: false }),
             brandService.getBrands().catch(() => []),
             categoryService.getCategories({ size: 500 }).then(res => res.content || res).catch(() => [])
         ]);
@@ -56,35 +55,26 @@ export default async function ProductsPage({
             )
         },
         {
-            header: "Kod / Grup No",
-            cell: (product) => {
-                if (product.groupCode) {
-                    return (
-                        <div className="space-y-1">
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                <Layers className="w-3 h-3 mr-1" />
-                                {product.groupCode}
-                            </span>
-                            {product.code && (
-                                <div className="text-[11px] text-slate-400 font-mono">{product.code}</div>
-                            )}
-                        </div>
-                    );
-                }
-                return (
-                    <span className="font-mono text-xs font-medium text-slate-700">
+            header: "Kod",
+            cell: (product) => (
+                <div className="space-y-1">
+                    <div className="font-mono text-xs font-semibold text-slate-800">
                         {product.code || "-"}
-                    </span>
-                );
-            }
+                    </div>
+                    {product.groupCode && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                            <Layers className="w-2.5 h-2.5 mr-1" />
+                            {product.groupCode}
+                        </span>
+                    )}
+                </div>
+            )
         },
         {
             header: "Ürün Adı",
             cell: (product) => (
-                <div className="max-w-md">
-                    <div className="font-semibold text-slate-900 line-clamp-2">
-                        {product.groupName || product.name}
-                    </div>
+                <div className="max-w-md font-semibold text-slate-900 line-clamp-2">
+                    {product.name}
                 </div>
             )
         },
@@ -146,8 +136,7 @@ export default async function ProductsPage({
             searchParams={{
                 search,
                 brandId,
-                categoryId,
-                grouped: grouped ? "true" : "false"
+                categoryId
             }}
         />
     );
@@ -158,7 +147,7 @@ export default async function ProductsPage({
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900">Ürün Yönetimi</h1>
                     <p className="text-slate-500 mt-1">
-                        Tüm ürünleri ve ürün gruplarını sınıflandırın, listeleyin ve yönetin.
+                        Tüm münferit ürünleri tek tek listeleyin, düzenleyin ve fiyat/stok yönetimi yapın.
                     </p>
                 </div>
                 <div className="flex gap-2">
