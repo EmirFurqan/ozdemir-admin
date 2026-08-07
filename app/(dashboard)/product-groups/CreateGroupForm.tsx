@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
@@ -8,12 +8,31 @@ import { createProductGroupWithProducts } from "@/app/actions/productGroup";
 import { getProductsForSelect } from "@/app/actions/product";
 import { Trash2, Plus, Loader2 } from "lucide-react";
 
-export default function CreateGroupForm({ allProducts: initialProducts = [] }: { allProducts?: any[] }) {
+export default function CreateGroupForm({
+    allProducts: initialProducts = [],
+    brands = [],
+    categories = [],
+}: {
+    allProducts?: any[];
+    brands?: any[];
+    categories?: any[];
+}) {
     const [state, formAction] = useActionState(createProductGroupWithProducts, null);
 
-    // Async product fetching for performance
     const [availableProducts, setAvailableProducts] = useState<any[]>(initialProducts);
     const [isLoadingProducts, setIsLoadingProducts] = useState(initialProducts.length === 0);
+
+    const [selectedBrandId, setSelectedBrandId] = useState("");
+    const [selectedCategoryId, setSelectedCategoryId] = useState("");
+
+    // Filter categories based on selected brand
+    const filteredCategories = useMemo(() => {
+        if (!selectedBrandId) return categories;
+        return categories.filter((c: any) => {
+            const bId = c.brandId || c.brand?.id;
+            return !bId || bId.toString() === selectedBrandId.toString();
+        });
+    }, [categories, selectedBrandId]);
 
     // Fetch products on mount if not provided
     useEffect(() => {
@@ -73,7 +92,7 @@ export default function CreateGroupForm({ allProducts: initialProducts = [] }: {
                 <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Grup Bilgileri</h3>
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Grup Kodu</label>
+                        <label className="text-sm font-medium text-slate-700">Grup Kodu <span className="text-red-500">*</span></label>
                         <Input
                             name="groupCode"
                             required
@@ -82,14 +101,58 @@ export default function CreateGroupForm({ allProducts: initialProducts = [] }: {
                         />
                         <p className="text-[10px] text-slate-500">Benzersiz grup kodu.</p>
                     </div>
+
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Grup Adı</label>
+                        <label className="text-sm font-medium text-slate-700">Grup Adı <span className="text-red-500">*</span></label>
                         <Input
                             name="name"
                             required
                             placeholder="Örn: Üstten Depo Tabancalar"
                             className="bg-slate-50"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Ortak Marka</label>
+                        <select
+                            name="brandId"
+                            value={selectedBrandId}
+                            onChange={(e) => {
+                                setSelectedBrandId(e.target.value);
+                                if (selectedCategoryId && e.target.value) {
+                                    const validCat = categories.find((c: any) => {
+                                        const bId = c.brandId || c.brand?.id;
+                                        return c.id.toString() === selectedCategoryId && (!bId || bId.toString() === e.target.value);
+                                    });
+                                    if (!validCat) setSelectedCategoryId("");
+                                }
+                            }}
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 px-3 py-2 cursor-pointer font-medium"
+                        >
+                            <option value="">-- Marka Seçin --</option>
+                            {brands.map((b: any) => (
+                                <option key={b.id} value={b.id.toString()}>
+                                    {b.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Ortak Kategori</label>
+                        <select
+                            name="categoryId"
+                            value={selectedCategoryId}
+                            onChange={(e) => setSelectedCategoryId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 px-3 py-2 cursor-pointer font-medium"
+                        >
+                            <option value="">-- Kategori Seçin --</option>
+                            {filteredCategories.map((c: any) => (
+                                <option key={c.id} value={c.id.toString()}>
+                                    {c.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

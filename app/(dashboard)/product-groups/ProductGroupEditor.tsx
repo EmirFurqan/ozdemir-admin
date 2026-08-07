@@ -58,11 +58,15 @@ export default function ProductGroupEditor({
     groupId,
     products,
     allProducts,
+    brands = [],
+    categories = [],
 }: {
     group: any;
     groupId: number;
     products: any[];
     allProducts: any[];
+    brands?: any[];
+    categories?: any[];
 }) {
     const router = useRouter();
     const [saving, setSaving] = useState(false);
@@ -72,6 +76,8 @@ export default function ProductGroupEditor({
     const [groupCode, setGroupCode] = useState(group?.groupCode || "");
     const [groupName, setGroupName] = useState(group?.name || "");
     const [groupDescription, setGroupDescription] = useState(group?.description || "");
+    const [brandId, setBrandId] = useState<string>("");
+    const [categoryId, setCategoryId] = useState<string>("");
 
     // Shared assets
     const [images, setImages] = useState<GroupImage[]>([]);
@@ -194,8 +200,23 @@ export default function ProductGroupEditor({
                     }))
                 );
             }
+
+            // Populate brand & category from products if available
+            const bId = products[0].brand?.id || products[0].brandId;
+            if (bId) setBrandId(bId.toString());
+
+            const cId = products[0].category?.id || products[0].categoryId;
+            if (cId) setCategoryId(cId.toString());
         }
     }, [products, group]);
+
+    const filteredCategories = useMemo(() => {
+        if (!brandId) return categories;
+        return categories.filter((c: any) => {
+            const bId = c.brandId || c.brand?.id;
+            return !bId || bId.toString() === brandId.toString();
+        });
+    }, [categories, brandId]);
 
     // Combobox options
     const availableProducts = useMemo(() => {
@@ -349,6 +370,8 @@ export default function ProductGroupEditor({
                 groupId,
                 groupCode: groupCode.trim(),
                 groupName: groupName.trim() || groupCode.trim(),
+                brandId: brandId ? parseInt(brandId, 10) : null,
+                categoryId: categoryId ? parseInt(categoryId, 10) : null,
                 description: groupDescription,
                 images,
                 features,
@@ -495,6 +518,57 @@ export default function ProductGroupEditor({
                             placeholder="Örn: Üstten Depo Tabancalar"
                             className="bg-slate-50 text-sm border-slate-200"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Ortak Marka
+                        </label>
+                        <select
+                            value={brandId}
+                            onChange={(e) => {
+                                setBrandId(e.target.value);
+                                if (categoryId && e.target.value) {
+                                    const validCat = categories.find((c: any) => {
+                                        const bId = c.brandId || c.brand?.id;
+                                        return c.id.toString() === categoryId && (!bId || bId.toString() === e.target.value);
+                                    });
+                                    if (!validCat) setCategoryId("");
+                                }
+                            }}
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 px-3 py-2 cursor-pointer font-medium"
+                        >
+                            <option value="">-- Marka Seçin --</option>
+                            {brands.map((b: any) => (
+                                <option key={b.id} value={b.id.toString()}>
+                                    {b.name}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-slate-400">
+                            Kaydettiğinizde gruptaki tüm alt ürünlerin markası topluca güncellenir.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Ortak Kategori
+                        </label>
+                        <select
+                            value={categoryId}
+                            onChange={(e) => setCategoryId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 px-3 py-2 cursor-pointer font-medium"
+                        >
+                            <option value="">-- Kategori Seçin --</option>
+                            {filteredCategories.map((c: any) => (
+                                <option key={c.id} value={c.id.toString()}>
+                                    {c.name}
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[11px] text-slate-400">
+                            Kaydettiğinizde gruptaki tüm alt ürünlerin kategorisi topluca güncellenir.
+                        </p>
                     </div>
                 </div>
             </div>

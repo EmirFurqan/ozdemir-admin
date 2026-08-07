@@ -111,6 +111,8 @@ export async function addProductToGroup(groupId: number, productId: number, vari
 export async function createProductGroupWithProducts(prevState: any, formData: FormData) {
     const groupCode = formData.get("groupCode") as string;
     const groupName = formData.get("name") as string;
+    const brandId = formData.get("brandId") as string;
+    const categoryId = formData.get("categoryId") as string;
     const productsJson = formData.get("products") as string;
 
     if (!groupCode || !groupName) {
@@ -120,34 +122,22 @@ export async function createProductGroupWithProducts(prevState: any, formData: F
     try {
         const products = JSON.parse(productsJson || "[]");
 
-        if (products.length === 0) {
-            // No products, use standard create
-            await fetchAPI("/product-groups", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    groupCode,
-                    name: groupName
-                }),
-            });
-        } else {
-            // Have products, use bulk assign
-            const payload = {
-                groupCode,
-                groupName,
-                products: products.map((p: any) => ({
-                    productId: p.id,
-                    variantLabel: p.variantLabel
-                }))
-            };
+        const payload = {
+            groupCode,
+            groupName,
+            brandId: brandId ? Number(brandId) : null,
+            categoryId: categoryId ? Number(categoryId) : null,
+            products: products.map((p: any) => ({
+                productId: p.id,
+                variantLabel: p.variantLabel
+            }))
+        };
 
-            await fetchAPI("/product-groups/bulk-assign", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-        }
-
+        await fetchAPI("/product-groups/bulk-assign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
     } catch (error) {
         console.error("Failed to create group with products:", error);
         return { success: false, message: "Grup oluşturulurken hata oluştu." };
