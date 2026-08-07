@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { bulkAssignGroupAction, deleteProductGroupAction } from "@/app/actions/productGroup";
+import { getProductsForSelect } from "@/app/actions/product";
 import {
     ArrowLeft,
     Save,
@@ -217,22 +218,32 @@ export default function ProductGroupEditor({
             return !bId || bId.toString() === brandId.toString();
         });
     }, [categories, brandId]);
+    // Selectable products for group addition
+    const [selectProducts, setSelectProducts] = useState<any[]>(allProducts || []);
+
+    useEffect(() => {
+        if (!selectProducts || selectProducts.length === 0) {
+            getProductsForSelect().then((data) => {
+                setSelectProducts(data || []);
+            });
+        }
+    }, []);
 
     // Combobox options
     const availableProducts = useMemo(() => {
-        if (!allProducts) return [];
-        return allProducts
+        if (!selectProducts) return [];
+        return selectProducts
             .filter((p) => !variants.some((v) => v.productId === p.id))
             .map((p) => ({
                 value: p.id.toString(),
-                label: `${p.code} - ${p.name}`,
+                label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
             }));
-    }, [allProducts, variants]);
+    }, [selectProducts, variants]);
 
     const handleAddSelectedProduct = () => {
         if (!selectedProductId) return;
         const id = parseInt(selectedProductId, 10);
-        const prod = allProducts.find((p) => p.id === id);
+        const prod = selectProducts.find((p) => p.id === id);
         if (!prod) return;
 
         setVariants([
