@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import SearchBar from "./SearchBar";
-import { Filter, RotateCcw, Layers } from "lucide-react";
+import { RotateCcw, Layers } from "lucide-react";
 
 interface BrandOption {
     id: number;
@@ -13,6 +13,8 @@ interface BrandOption {
 interface CategoryOption {
     id: number;
     name: string;
+    brand?: { id: number; name: string };
+    brandId?: number;
 }
 
 interface ProductFilterBarProps {
@@ -29,6 +31,15 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
     const currentCategoryId = searchParams.get("categoryId") || "";
     const currentGrouped = searchParams.get("grouped") !== "false"; // default to true
 
+    // Filter categories dynamically based on selected brand
+    const filteredCategories = useMemo(() => {
+        if (!currentBrandId) return categories;
+        return categories.filter((c) => {
+            const bId = c.brandId || c.brand?.id;
+            return !bId || bId.toString() === currentBrandId.toString();
+        });
+    }, [categories, currentBrandId]);
+
     // Save active filter to sessionStorage so back button always remembers
     useEffect(() => {
         const currentUrl = window.location.search;
@@ -36,6 +47,32 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
             sessionStorage.setItem("admin_products_filter", currentUrl);
         }
     }, [searchParams]);
+
+    const handleBrandChange = useCallback(
+        (newBrandId: string) => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (newBrandId) {
+                params.set("brandId", newBrandId);
+            } else {
+                params.delete("brandId");
+            }
+
+            // Check if existing category belongs to new brand
+            if (currentCategoryId && newBrandId) {
+                const validCat = categories.find((c) => {
+                    const bId = c.brandId || c.brand?.id;
+                    return c.id.toString() === currentCategoryId && (!bId || bId.toString() === newBrandId);
+                });
+                if (!validCat) {
+                    params.delete("categoryId"); // Reset incompatible category
+                }
+            }
+
+            params.delete("page");
+            router.push("?" + params.toString());
+        },
+        [searchParams, categories, currentCategoryId, router]
+    );
 
     const updateFilter = useCallback(
         (key: string, value: string) => {
@@ -45,7 +82,6 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
             } else {
                 params.delete(key);
             }
-            // Reset to page 0 when filter changes
             params.delete("page");
             router.push("?" + params.toString());
         },
@@ -84,7 +120,7 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
                     <div className="flex items-center gap-1.5">
                         <select
                             value={currentBrandId}
-                            onChange={(e) => updateFilter("brandId", e.target.value)}
+                            onChange={(e) => handleBrandChange(e.target.value)}
                             className="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block px-3 py-2 transition-colors cursor-pointer"
                         >
                             <option value="">Tüm Markalar</option>
@@ -96,7 +132,7 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
                         </select>
                     </div>
 
-                    {/* Category Filter */}
+                    {/* Category Filter (Filtered by selected brand) */}
                     <div className="flex items-center gap-1.5">
                         <select
                             value={currentCategoryId}
@@ -104,7 +140,7 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
                             className="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block px-3 py-2 transition-colors cursor-pointer"
                         >
                             <option value="">Tüm Kategoriler</option>
-                            {categories.map((c) => (
+                            {filteredCategories.map((c) => (
                                 <option key={c.id} value={c.id.toString()}>
                                     {c.name}
                                 </option>

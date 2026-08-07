@@ -34,7 +34,7 @@ export default async function ProductsPage({
         const [productsData, brandsData, categoriesData] = await Promise.all([
             productService.getProducts({ page, size: 20, search, brandId, categoryId, grouped }),
             brandService.getBrands().catch(() => []),
-            categoryService.getCategories().then(res => res.content || res).catch(() => [])
+            categoryService.getCategories({ size: 500 }).then(res => res.content || res).catch(() => [])
         ]);
 
         products = productsData.content || [];
@@ -85,11 +85,6 @@ export default async function ProductsPage({
                     <div className="font-semibold text-slate-900 line-clamp-2">
                         {product.groupName || product.name}
                     </div>
-                    {product.groupCode && (
-                        <span className="inline-block mt-1 text-[10px] uppercase font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                            Gruplu Ürün Serisi
-                        </span>
-                    )}
                 </div>
             )
         },
