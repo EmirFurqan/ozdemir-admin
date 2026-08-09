@@ -197,22 +197,19 @@ export default function ProductGroupEditor({
                 }))
             );
 
-            // Populate shared images from first product if available (non-individual mode)
-            if (!isIndividualMode) {
-                if (products[0].images && products[0].images.length > 0) {
-                    setImages(
-                        products[0].images.map((img: any) => ({
-                            url: img.url,
-                            isMain: img.isMain,
-                            displayOrder: img.displayOrder || 0,
-                        }))
-                    );
-                } else if (group?.imageUrl) {
-                    setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
-                }
-            } else if (group?.imageUrl && images.length === 0) {
-                // In individual mode, shared images are stored on the group
+            // Populate shared images from group or first product
+            if (group?.imageUrl) {
                 setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
+            } else if (!isIndividualMode && products[0]?.images && products[0].images.length > 0) {
+                setImages(
+                    products[0].images.map((img: any) => ({
+                        url: img.url,
+                        isMain: img.isMain,
+                        displayOrder: img.displayOrder || 0,
+                    }))
+                );
+            } else {
+                setImages([]);
             }
 
             // Populate description if missing on group but present on product
