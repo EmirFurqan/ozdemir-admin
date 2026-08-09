@@ -996,19 +996,20 @@ export default function ProductGroupEditor({
                     <table className="w-full text-xs text-left">
                         <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
                             <tr>
-                                <th className="p-3.5 w-20">ID / Kod</th>
+                                <th className="p-3.5 w-16">ID</th>
+                                <th className="p-3.5 w-36">Ürün Kodu</th>
                                 <th className="p-3.5">Ürün İsmi</th>
                                 <th className="p-3.5">Varyant Etiketi</th>
-                                <th className="p-3.5 w-32">Fiyat</th>
-                                <th className="p-3.5 w-28">Stok</th>
+                                <th className="p-3.5 w-28">Fiyat</th>
+                                <th className="p-3.5 w-24">Stok</th>
                                 {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
-                                <th className="p-3.5 text-right w-24">İşlem</th>
+                                <th className="p-3.5 text-right w-20">İşlem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {variants.length === 0 ? (
                                 <tr>
-                                    <td colSpan={individualImages ? 7 : 6} className="p-8 text-center text-slate-400 italic">
+                                    <td colSpan={individualImages ? 8 : 7} className="p-8 text-center text-slate-400 italic">
                                         Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz.
                                     </td>
                                 </tr>
@@ -1016,8 +1017,17 @@ export default function ProductGroupEditor({
                                 variants.map((v, idx) => (
                                     <React.Fragment key={v.productId}>
                                         <tr className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="p-3.5 font-mono text-slate-700 font-medium text-xs">
-                                                #{v.productId}<br/><span className="text-slate-400 font-normal">{v.code}</span>
+                                            <td className="p-3.5 font-mono text-slate-500 font-bold text-xs">
+                                                #{v.productId}
+                                            </td>
+                                            <td className="p-3.5">
+                                                <Input
+                                                    type="text"
+                                                    value={v.code}
+                                                    onChange={(e) => handleUpdateVariant(idx, "code", e.target.value)}
+                                                    placeholder="Ürün kodu..."
+                                                    className="bg-white font-mono text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                                                />
                                             </td>
                                             <td className="p-3.5">
                                                 <Input
@@ -1025,7 +1035,7 @@ export default function ProductGroupEditor({
                                                     value={v.name}
                                                     onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
                                                     placeholder="Ürün ismi..."
-                                                    className="bg-white text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20 mb-1"
+                                                    className="bg-white text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
                                                 />
                                             </td>
                                             <td className="p-3.5">
