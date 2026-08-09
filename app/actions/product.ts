@@ -182,31 +182,14 @@ export async function deleteProduct(id: number) {
 
 export async function updateProductErpInfo(productId: number, code: string, logoLogicalRef: number | null) {
     try {
-        // 1. Fetch current product
-        const product = await fetchAPI(`/products/${productId}`);
-        
-        // 2. Update specific fields safely (partial update)
-        // Omitting images, features, documents so backend doesn't try to parse them
-        // and doesn't clear them (thanks to backend fix).
-        const updatedProduct = {
-            name: product.name,
+        const payload = {
             code: code,
-            price: product.price,
-            stock: product.stock,
-            description: product.description,
-            currency: product.currency,
-            vatRate: product.vatRate,
-            logoLogicalRef: logoLogicalRef,
-            brand: product.brand ? { id: product.brand.id } : null,
-            category: product.category ? { id: product.category.id } : null,
-            variantLabel: product.variantLabel,
-            group: product.group ? { id: product.group.id } : null
+            logoLogicalRef: logoLogicalRef
         };
 
-        // 3. Save
-        await fetchAPI(`/products/${productId}`, {
-            method: "PUT",
-            body: JSON.stringify(updatedProduct)
+        await fetchAPI(`/products/${productId}/erp`, {
+            method: "PATCH",
+            body: JSON.stringify(payload)
         });
 
         revalidatePath("/products");

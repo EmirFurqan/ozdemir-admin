@@ -87,26 +87,45 @@ export default function ErpMatcherClient({ initialProducts }: { initialProducts:
         reader.readAsBinaryString(file);
     };
 
+    const [deduplicateErp, setDeduplicateErp] = useState(true);
+
     // Filter Products
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
             if (hideMatched && p.logoLogicalRef) return false;
             
-            const term = dbSearch.toLowerCase();
-            return p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term);
+            const term = dbSearch.toLowerCase().trim();
+            if (!term) return true;
+            return (p.name && p.name.toLowerCase().includes(term)) || (p.code && p.code.toLowerCase().includes(term));
         });
     }, [products, dbSearch, hideMatched]);
 
     // Filter ERP Data
     const filteredErpData = useMemo(() => {
-        if (!erpSearch) return erpData;
-        const term = erpSearch.toLowerCase();
-        
-        return erpData.filter(row => {
-            // search in mapped columns only to be fast, or in all string values
-            return Object.values(row).some(val => String(val).toLowerCase().includes(term));
-        });
-    }, [erpData, erpSearch]);
+        let list = erpData;
+
+        if (erpSearch) {
+            const term = erpSearch.toLowerCase().trim();
+            list = list.filter(row =>
+                Object.values(row).some(val => String(val).toLowerCase().includes(term))
+            );
+        }
+
+        if (deduplicateErp && (codeColumn || logoRefColumn)) {
+            const seen = new Set<string>();
+            list = list.filter(row => {
+                const codeVal = codeColumn ? String(row[codeColumn] || '').trim() : '';
+                const refVal = logoRefColumn ? String(row[logoRefColumn] || '').trim() : '';
+                const key = `${codeVal}_${refVal}`;
+                if (!key || key === '_') return true;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
+        return list;
+    }, [erpData, erpSearch, deduplicateErp, codeColumn, logoRefColumn]);
 
     // Handle Match Action
     const handleMatch = async () => {
@@ -349,6 +368,16 @@ export default function ErpMatcherClient({ initialProducts }: { initialProducts:
                                 disabled={!erpData.length}
                             />
                         </div>
+                        <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+                            <input 
+                                type="checkbox" 
+                                className="rounded text-red-600 focus:ring-red-500 bg-white border-slate-300 w-4 h-4"
+                                checked={deduplicateErp}
+                                onChange={e => setDeduplicateErp(e.target.checked)}
+                                disabled={!erpData.length}
+                            />
+                            Tekilleştir (Aynı Kod/Ref olan mükerrer satırları birleştir)
+                        </label>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
