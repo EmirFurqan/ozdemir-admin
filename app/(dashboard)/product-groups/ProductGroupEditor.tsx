@@ -189,7 +189,7 @@ export default function ProductGroupEditor({
                     code: p.code || "",
                     price: p.price || 0,
                     stock: p.stock || 0,
-                    images: p.images ? p.images.map((img: any) => ({
+                    images: isIndividualMode && p.images ? p.images.map((img: any) => ({
                         url: img.url,
                         isMain: img.isMain,
                         displayOrder: img.displayOrder || 0,
@@ -210,8 +210,8 @@ export default function ProductGroupEditor({
                 } else if (group?.imageUrl) {
                     setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
                 }
-            } else if (group?.imageUrl) {
-                // In individual mode, shared images may still be stored on the group
+            } else if (group?.imageUrl && images.length === 0) {
+                // In individual mode, shared images are stored on the group
                 setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
             }
 
