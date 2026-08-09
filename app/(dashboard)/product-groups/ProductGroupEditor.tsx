@@ -172,14 +172,14 @@ export default function ProductGroupEditor({
     );
 
     useEffect(() => {
-        // Read individualImages from group
-        if (group?.individualImages) {
-            setIndividualImages(true);
-        }
-
         if (products && products.length > 0) {
             // Determine if products have different images (individual mode detection)
-            const isIndividualMode = group?.individualImages === true;
+            const distinctImages = new Set(products.map((p) => p.imageUrl).filter(Boolean));
+            const isIndividualMode = group?.individualImages === true || (products.length > 1 && distinctImages.size > 1);
+
+            if (isIndividualMode) {
+                setIndividualImages(true);
+            }
 
             setVariants(
                 products.map((p) => ({
@@ -189,11 +189,11 @@ export default function ProductGroupEditor({
                     code: p.code || "",
                     price: p.price || 0,
                     stock: p.stock || 0,
-                    images: isIndividualMode && p.images ? p.images.map((img: any) => ({
+                    images: p.images ? p.images.map((img: any) => ({
                         url: img.url,
                         isMain: img.isMain,
                         displayOrder: img.displayOrder || 0,
-                    })) : undefined,
+                    })) : [],
                 }))
             );
 
