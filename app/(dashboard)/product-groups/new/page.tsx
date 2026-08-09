@@ -1,6 +1,6 @@
 import { brandService } from "@/app/services/brandService";
 import { categoryService } from "@/app/services/categoryService";
-import CreateGroupForm from "../CreateGroupForm";
+import ProductGroupEditor from "../ProductGroupEditor";
 
 export const dynamic = 'force-dynamic';
 
@@ -14,9 +14,15 @@ export default async function NewProductGroupPage() {
     const categories = Array.isArray(categoriesData) ? categoriesData : [];
 
     return (
-        <div className="container mx-auto py-10 px-4">
-            <h1 className="text-2xl font-bold mb-8 text-center">Yeni Ürün Grubu Ekle</h1>
-            <CreateGroupForm allProducts={[]} brands={brands} categories={categories} />
+        <div className="container mx-auto py-8 px-4">
+            <ProductGroupEditor
+                group={null}
+                groupId={0}
+                products={[]}
+                allProducts={[]}
+                brands={brands}
+                categories={categories}
+            />
         </div>
     );
 }

@@ -62,16 +62,16 @@ interface VariantProduct {
 
 export default function ProductGroupEditor({
     group,
-    groupId,
-    products,
-    allProducts,
+    groupId = 0,
+    products = [],
+    allProducts = [],
     brands = [],
     categories = [],
 }: {
-    group: any;
-    groupId: number;
-    products: any[];
-    allProducts: any[];
+    group?: any;
+    groupId?: number;
+    products?: any[];
+    allProducts?: any[];
     brands?: any[];
     categories?: any[];
 }) {
@@ -478,7 +478,7 @@ export default function ProductGroupEditor({
 
         try {
             const payload = {
-                groupId,
+                groupId: groupId > 0 ? groupId : null,
                 groupCode: groupCode.trim(),
                 groupName: groupName.trim() || groupCode.trim(),
                 brandId: brandId ? parseInt(brandId, 10) : null,
@@ -497,10 +497,13 @@ export default function ProductGroupEditor({
             if (res.success) {
                 setStatusMessage({
                     type: "success",
-                    text: "Tüm grup ortak detayları ve alt ürünler başarıyla güncellendi!",
+                    text: groupId > 0 ? "Tüm grup ortak detayları ve alt ürünler başarıyla güncellendi!" : "Yeni ürün grubu başarıyla oluşturuldu!",
                 });
+                if ((!groupId || groupId === 0) && res.group?.id) {
+                    router.push(`/product-groups/${res.group.id}`);
+                }
             } else {
-                setStatusMessage({ type: "error", text: res.message || "Grup güncellenirken hata oluştu." });
+                setStatusMessage({ type: "error", text: res.message || "Grup kaydedilirken hata oluştu." });
             }
         } catch (e: any) {
             console.error("Save error:", e);
@@ -543,26 +546,28 @@ export default function ProductGroupEditor({
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="font-mono text-xs font-bold bg-red-50 text-red-600 px-2.5 py-0.5 rounded-md">
-                                {groupCode || "Grup Düzenleme"}
+                                {groupId > 0 ? (groupCode || "Grup Düzenleme") : "Yeni Grup"}
                             </span>
-                            <span className="text-xs text-slate-400">ID: #{groupId}</span>
+                            {groupId > 0 && <span className="text-xs text-slate-400">ID: #{groupId}</span>}
                         </div>
                         <h1 className="text-2xl font-bold text-slate-900 mt-1">
-                            {groupName || "Ürün Grubu Düzenle"}
+                            {groupId > 0 ? (groupName || "Ürün Grubu Düzenle") : (groupName || "Yeni Ürün Grubu Oluştur")}
                         </h1>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleDeleteGroup}
-                        className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold text-sm px-4 py-3 rounded-xl transition-all cursor-pointer"
-                    >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Grubu Sil
-                    </Button>
+                    {groupId > 0 && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleDeleteGroup}
+                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold text-sm px-4 py-3 rounded-xl transition-all cursor-pointer"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Grubu Sil
+                        </Button>
+                    )}
                     <Button
                         type="button"
                         onClick={handleSaveGroupAndSync}
