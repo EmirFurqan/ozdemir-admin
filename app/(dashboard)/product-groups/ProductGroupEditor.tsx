@@ -58,6 +58,7 @@ interface VariantProduct {
     code: string;
     price: number;
     stock: number;
+    active?: boolean;
     images?: GroupImage[];
     features?: GroupFeature[];
 }
@@ -220,6 +221,7 @@ export default function ProductGroupEditor({
                     code: p.code || "",
                     price: p.price || 0,
                     stock: p.stock || 0,
+                    active: p.active !== false,
                     images: p.images && p.images.length > 0
                         ? p.images.map((img: any) => ({
                             url: img.url,
@@ -1156,6 +1158,7 @@ export default function ProductGroupEditor({
                                     <th className="p-3.5">Varyant Etiketi</th>
                                     <th className="p-3.5 w-28">Fiyat</th>
                                     <th className="p-3.5 w-24">Stok</th>
+                                    <th className="p-3.5 w-20 text-center">Durum</th>
                                     {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
                                     {individualFeatures && <th className="p-3.5 w-28 text-center">Özellikler</th>}
                                     <th className="p-3.5 text-right w-20">İşlem</th>
@@ -1164,7 +1167,7 @@ export default function ProductGroupEditor({
                             <tbody className="divide-y divide-slate-100 bg-white">
                                 {paginatedVariants.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
+                                        <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
                                             {variantSearch ? "Aramanıza uygun ürün bulunamadı." : "Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz."}
                                         </td>
                                     </tr>
@@ -1226,6 +1229,20 @@ export default function ProductGroupEditor({
                                                              onChange={(e) => handleUpdateVariant(idx, "stock", parseInt(e.target.value, 10) || 0)}
                                                              className="bg-white text-xs border-slate-300"
                                                          />
+                                                     </td>
+                                                     <td className="p-3.5 text-center">
+                                                         <button
+                                                             type="button"
+                                                             onClick={() => handleUpdateVariant(idx, "active", !(v.active !== false))}
+                                                             className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
+                                                                 v.active !== false
+                                                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                                                     : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                                                             }`}
+                                                             title={v.active !== false ? "Ürün Aktif (Tıkla Pasif Yap)" : "Ürün Pasif (Tıkla Aktif Yap)"}
+                                                         >
+                                                             {v.active !== false ? "Aktif" : "Pasif"}
+                                                         </button>
                                                      </td>
                                             {individualImages && (
                                                 <td className="p-3.5 text-center">
@@ -1300,7 +1317,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Images Panel */}
                                         {individualImages && expandedVariantImages === idx && (
                                             <tr>
-                                                <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1395,7 +1412,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Features Panel */}
                                         {individualFeatures && expandedVariantFeatures === idx && (
                                             <tr>
-                                                <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
