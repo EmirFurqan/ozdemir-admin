@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { bulkAssignGroupAction, deleteProductGroupAction } from "@/app/actions/productGroup";
 import { getProductsForSelect } from "@/app/actions/product";
+import TableImage from "@/app/components/TableImage";
 import {
     ArrowLeft,
     Save,
@@ -103,6 +104,26 @@ export default function ProductGroupEditor({
 
     // Product variants
     const [variants, setVariants] = useState<VariantProduct[]>([]);
+    const [variantSearch, setVariantSearch] = useState("");
+    const [variantPage, setVariantPage] = useState(0);
+    const variantPageSize = 10;
+
+    const filteredVariants = useMemo(() => {
+        if (!variantSearch.trim()) return variants;
+        const q = variantSearch.toLowerCase().trim();
+        return variants.filter((v) =>
+            (v.code && v.code.toLowerCase().includes(q)) ||
+            (v.name && v.name.toLowerCase().includes(q)) ||
+            (v.variantLabel && v.variantLabel.toLowerCase().includes(q)) ||
+            (v.productId && v.productId.toString().includes(q))
+        );
+    }, [variants, variantSearch]);
+
+    const totalVariantPages = Math.ceil(filteredVariants.length / variantPageSize);
+    const paginatedVariants = useMemo(() => {
+        const start = variantPage * variantPageSize;
+        return filteredVariants.slice(start, start + variantPageSize);
+    }, [filteredVariants, variantPage, variantPageSize]);
 
     // Combobox selection for adding existing product to group
     const [selectedProductId, setSelectedProductId] = useState("");
@@ -1087,78 +1108,125 @@ export default function ProductGroupEditor({
                 </div>
 
                 {/* Variants Bulk Edit Table */}
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                    <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
-                            <tr>
-                                <th className="p-3.5 w-16">ID</th>
-                                <th className="p-3.5 w-36">Ürün Kodu</th>
-                                <th className="p-3.5">Ürün İsmi</th>
-                                <th className="p-3.5">Varyant Etiketi</th>
-                                <th className="p-3.5 w-28">Fiyat</th>
-                                <th className="p-3.5 w-24">Stok</th>
-                                {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
-                                {individualFeatures && <th className="p-3.5 w-28 text-center">Özellikler</th>}
-                                <th className="p-3.5 text-right w-20">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
-                            {variants.length === 0 ? (
+                <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <div className="w-full sm:w-72">
+                            <Input
+                                type="text"
+                                placeholder="Grup ürünlerinde ara (kod, ad, etiket)..."
+                                value={variantSearch}
+                                onChange={(e) => {
+                                    setVariantSearch(e.target.value);
+                                    setVariantPage(0);
+                                }}
+                                className="bg-white text-xs border-slate-300"
+                            />
+                        </div>
+                        {totalVariantPages > 1 && (
+                            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                <button
+                                    type="button"
+                                    disabled={variantPage === 0}
+                                    onClick={() => setVariantPage((p) => Math.max(0, p - 1))}
+                                    className="p-1 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span>Sayfa {variantPage + 1} / {totalVariantPages}</span>
+                                <button
+                                    type="button"
+                                    disabled={variantPage >= totalVariantPages - 1}
+                                    onClick={() => setVariantPage((p) => Math.min(totalVariantPages - 1, p + 1))}
+                                    className="p-1 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-slate-200">
+                        <table className="w-full text-xs text-left">
+                            <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
                                 <tr>
-                                    <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
-                                        Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz.
-                                    </td>
+                                    <th className="p-3.5 w-16">ID</th>
+                                    <th className="p-3.5 w-20">Resim</th>
+                                    <th className="p-3.5 w-36">Ürün Kodu</th>
+                                    <th className="p-3.5">Ürün İsmi</th>
+                                    <th className="p-3.5">Varyant Etiketi</th>
+                                    <th className="p-3.5 w-28">Fiyat</th>
+                                    <th className="p-3.5 w-24">Stok</th>
+                                    {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
+                                    {individualFeatures && <th className="p-3.5 w-28 text-center">Özellikler</th>}
+                                    <th className="p-3.5 text-right w-20">İşlem</th>
                                 </tr>
-                            ) : (
-                                variants.map((v, idx) => (
-                                    <React.Fragment key={v.productId}>
-                                        <tr className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="p-3.5 font-mono text-slate-500 font-bold text-xs">
-                                                #{v.productId}
-                                            </td>
-                                            <td className="p-3.5">
-                                                <Input
-                                                    type="text"
-                                                    value={v.code}
-                                                    onChange={(e) => handleUpdateVariant(idx, "code", e.target.value)}
-                                                    placeholder="Ürün kodu..."
-                                                    className="bg-white font-mono text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <Input
-                                                    type="text"
-                                                    value={v.name}
-                                                    onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
-                                                    placeholder="Ürün ismi..."
-                                                    className="bg-white text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <Input
-                                                    type="text"
-                                                    value={v.variantLabel}
-                                                    onChange={(e) => handleUpdateVariant(idx, "variantLabel", e.target.value)}
-                                                    placeholder="Örn: 10 mm"
-                                                    className="bg-white text-xs font-semibold text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <Input
-                                                    type="number"
-                                                    value={v.price}
-                                                    onChange={(e) => handleUpdateVariant(idx, "price", parseFloat(e.target.value) || 0)}
-                                                    className="bg-white text-xs border-slate-300"
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <Input
-                                                    type="number"
-                                                    value={v.stock}
-                                                    onChange={(e) => handleUpdateVariant(idx, "stock", parseInt(e.target.value, 10) || 0)}
-                                                    className="bg-white text-xs border-slate-300"
-                                                />
-                                            </td>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                                {paginatedVariants.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
+                                            {variantSearch ? "Aramanıza uygun ürün bulunamadı." : "Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz."}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    paginatedVariants.map((v, pageIdx) => {
+                                        const idx = variantPage * variantPageSize + pageIdx;
+                                        const variantImg = v.images?.[0]?.url || images?.[0]?.url || group?.imageUrl;
+                                        return (
+                                            <React.Fragment key={v.productId}>
+                                                <tr className="hover:bg-slate-50/80 transition-colors">
+                                                    <td className="p-3.5 font-mono text-slate-500 font-bold text-xs">
+                                                        #{v.productId}
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                        <TableImage
+                                                            src={variantImg}
+                                                            alt={v.name || v.code}
+                                                        />
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                        <Input
+                                                            type="text"
+                                                            value={v.code}
+                                                            onChange={(e) => handleUpdateVariant(idx, "code", e.target.value)}
+                                                            placeholder="Ürün kodu..."
+                                                            className="bg-white font-mono text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                                                        />
+                                                    </td>
+                                                    <td className="p-3.5">
+                                                         <Input
+                                                             type="text"
+                                                             value={v.name}
+                                                             onChange={(e) => handleUpdateVariant(idx, "name", e.target.value)}
+                                                             placeholder="Ürün ismi..."
+                                                             className="bg-white text-xs text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                                                         />
+                                                     </td>
+                                                     <td className="p-3.5">
+                                                         <Input
+                                                             type="text"
+                                                             value={v.variantLabel}
+                                                             onChange={(e) => handleUpdateVariant(idx, "variantLabel", e.target.value)}
+                                                             placeholder="Örn: 10 mm"
+                                                             className="bg-white text-xs font-semibold text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                                                         />
+                                                     </td>
+                                                     <td className="p-3.5">
+                                                         <Input
+                                                             type="number"
+                                                             value={v.price}
+                                                             onChange={(e) => handleUpdateVariant(idx, "price", parseFloat(e.target.value) || 0)}
+                                                             className="bg-white text-xs border-slate-300"
+                                                         />
+                                                     </td>
+                                                     <td className="p-3.5">
+                                                         <Input
+                                                             type="number"
+                                                             value={v.stock}
+                                                             onChange={(e) => handleUpdateVariant(idx, "stock", parseInt(e.target.value, 10) || 0)}
+                                                             className="bg-white text-xs border-slate-300"
+                                                         />
+                                                     </td>
                                             {individualImages && (
                                                 <td className="p-3.5 text-center">
                                                     <button
@@ -1232,7 +1300,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Images Panel */}
                                         {individualImages && expandedVariantImages === idx && (
                                             <tr>
-                                                <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1327,7 +1395,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Features Panel */}
                                         {individualFeatures && expandedVariantFeatures === idx && (
                                             <tr>
-                                                <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={8 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1391,11 +1459,13 @@ export default function ProductGroupEditor({
                                             </tr>
                                         )}
                                     </React.Fragment>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
                 {/* Bottom Action Footer */}
                 <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">

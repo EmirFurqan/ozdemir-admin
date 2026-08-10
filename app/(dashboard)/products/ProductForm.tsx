@@ -16,6 +16,7 @@ export default function ProductForm({ product, brands, categories, initialGroupI
     const [state, formAction] = useActionState(saveProduct, null);
     // If we have an initial group, we assume it's a variant product
     const [hasVariants, setHasVariants] = useState(!!(product?.variants && product.variants.length > 0) || !!product?.groupName || !!initialGroupId);
+    const [active, setActive] = useState<boolean>(product?.active !== false);
 
     // Selection state
     const [selectedBrand, setSelectedBrand] = useState<string>(product?.brand?.id?.toString() || "");
@@ -376,6 +377,28 @@ export default function ProductForm({ product, brands, categories, initialGroupI
                                 ))}
                             </select>
                         </div>
+                    </div>
+
+                    {/* Active Status Toggle */}
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div>
+                            <label className="text-sm font-semibold text-slate-900 block">Ürün Yayın Durumu</label>
+                            <p className="text-xs text-slate-500">Pasif ürünler kurumsal web sitesinde müşterilere görünmez.</p>
+                        </div>
+                        <input type="hidden" name="active" value={active ? "true" : "false"} />
+                        <button
+                            type="button"
+                            onClick={() => setActive(!active)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                                active ? "bg-emerald-600" : "bg-slate-300"
+                            }`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    active ? "translate-x-6" : "translate-x-1"
+                                }`}
+                            />
+                        </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

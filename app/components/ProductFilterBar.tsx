@@ -29,6 +29,7 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
     const currentSearch = searchParams.get("search") || "";
     const currentBrandId = searchParams.get("brandId") || "";
     const currentCategoryId = searchParams.get("categoryId") || "";
+    const currentActive = searchParams.get("active") || "";
 
     // Filter categories dynamically based on selected brand
     const filteredCategories = useMemo(() => {
@@ -92,7 +93,7 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
         router.push("/products");
     }, [router]);
 
-    const hasActiveFilters = currentSearch || currentBrandId || currentCategoryId;
+    const hasActiveFilters = currentSearch || currentBrandId || currentCategoryId || currentActive;
 
     return (
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 space-y-4">
@@ -104,6 +105,19 @@ export default function ProductFilterBar({ brands = [], categories = [] }: Produ
 
                 {/* Filter dropdowns */}
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    {/* Status Filter */}
+                    <div className="flex items-center gap-1.5">
+                        <select
+                            value={currentActive}
+                            onChange={(e) => updateFilter("active", e.target.value)}
+                            className="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block px-3 py-2 transition-colors cursor-pointer"
+                        >
+                            <option value="">Tüm Durumlar</option>
+                            <option value="true">Sadece Aktifler</option>
+                            <option value="false">Sadece Pasifler</option>
+                        </select>
+                    </div>
+
                     {/* Brand Filter */}
                     <div className="flex items-center gap-1.5">
                         <select

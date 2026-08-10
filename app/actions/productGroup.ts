@@ -14,6 +14,20 @@ export async function getProductGroups() {
     }
 }
 
+export async function getProductGroupsPaged({ page = 0, size = 20, search = "" }: { page?: number; size?: number; search?: string } = {}) {
+    try {
+        const query = new URLSearchParams({
+            page: page.toString(),
+            size: size.toString(),
+        });
+        if (search) query.append("search", search);
+        return await fetchAPI(`/product-groups?${query.toString()}`);
+    } catch (error) {
+        console.error("Failed to fetch paged product groups:", error);
+        return { content: [], totalPages: 0, totalElements: 0 };
+    }
+}
+
 export async function getProductGroupById(id: number) {
     try {
         return await fetchAPI(`/product-groups/${id}`);

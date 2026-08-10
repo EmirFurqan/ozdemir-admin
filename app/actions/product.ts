@@ -41,6 +41,8 @@ export async function saveProduct(prevState: any, formData: FormData) {
     const logoLogicalRef = formData.get("logoLogicalRef") as string;
     const brandId = formData.get("brandId") as string;
     const categoryId = formData.get("categoryId") as string;
+    const activeRaw = formData.get("active");
+    const active = activeRaw !== null ? activeRaw === "true" : true;
 
     // Variant fields
     const hasVariants = formData.get("hasVariants") === "true";
@@ -72,6 +74,7 @@ export async function saveProduct(prevState: any, formData: FormData) {
     const baseProductData = {
         name,
         code,
+        active,
         price: parseFloat(price) || 0,
         stock: parseInt(stock) || 0,
         description,
@@ -204,5 +207,19 @@ export async function updateProductErpInfo(productId: number, code: string, logo
     } catch (error) {
         console.error("Failed to update product ERP info:", error);
         return { success: false, message: "Ürün ERP bilgileri güncellenemedi." };
+    }
+}
+
+export async function toggleProductActiveStatusAction(productId: number, active: boolean) {
+    try {
+        await fetchAPI(`/products/${productId}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ active }),
+        });
+        revalidatePath("/products");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to toggle product active status:", error);
+        return { success: false, message: "Ürün durumu güncellenemedi." };
     }
 }

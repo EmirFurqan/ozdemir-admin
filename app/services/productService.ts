@@ -35,11 +35,12 @@ export interface Product {
     logoLogicalRef?: number;
     brand?: { id: number; name: string };
     category?: { id: number; name: string };
+    active?: boolean;
     features?: { id: number; feature: string; description: string; displayOrder: number }[];
 }
 
 export const productService = {
-    getProducts: async ({ page = 0, size = 20, search = "", brandId = null, categoryId = null, grouped = false }: { page?: number; size?: number; search?: string; brandId?: string | number | null; categoryId?: string | number | null; grouped?: boolean } = {}) => {
+    getProducts: async ({ page = 0, size = 20, search = "", brandId = null, categoryId = null, grouped = false, active = "all" }: { page?: number; size?: number; search?: string; brandId?: string | number | null; categoryId?: string | number | null; grouped?: boolean; active?: string } = {}) => {
         const query = new URLSearchParams({
             page: page.toString(),
             size: size.toString(),
@@ -48,6 +49,7 @@ export const productService = {
         if (search) query.append("search", search);
         if (brandId) query.append("brandId", brandId.toString());
         if (categoryId) query.append("categoryId", categoryId.toString());
+        if (active) query.append("active", active);
 
         return fetchAPI(`/products?${query.toString()}`);
     },
@@ -66,10 +68,17 @@ export const productService = {
     },
 
     getProductBySlug: async (slug: string) => {
-        return fetchAPI(`/products/${slug}`);
+        return fetchAPI(`/products/${slug}?includeInactive=true`);
     },
 
     getProductById: async (id: number) => {
-        return fetchAPI(`/products/${id}`);
+        return fetchAPI(`/products/${id}?includeInactive=true`);
+    },
+
+    toggleActiveStatus: async (id: number, active: boolean) => {
+        return fetchAPI(`/products/${id}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ active }),
+        });
     }
 };

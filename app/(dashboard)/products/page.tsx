@@ -6,6 +6,7 @@ import { Plus, Edit, Package, Layers } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DeleteProductButton from "./delete-product-button";
+import ProductStatusToggle from "./product-status-toggle";
 import Pagination from "@/app/components/Pagination";
 import { DataTable, Column } from "@/app/components/DataTable";
 import TableImage from "@/app/components/TableImage";
@@ -16,13 +17,14 @@ export const dynamic = 'force-dynamic';
 export default async function ProductsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ page?: string; search?: string; brandId?: string; categoryId?: string }>;
+    searchParams: Promise<{ page?: string; search?: string; brandId?: string; categoryId?: string; active?: string }>;
 }) {
     const params = await searchParams;
     const page = Number(params.page) || 0;
     const search = params.search || "";
     const brandId = params.brandId || "";
     const categoryId = params.categoryId || "";
+    const active = params.active || "all";
 
     let products: Product[] = [];
     let totalPages = 0;
@@ -31,7 +33,7 @@ export default async function ProductsPage({
 
     try {
         const [productsData, brandsData, categoriesData] = await Promise.all([
-            productService.getProducts({ page, size: 25, search, brandId, categoryId, grouped: false }),
+            productService.getProducts({ page, size: 25, search, brandId, categoryId, grouped: false, active }),
             brandService.getBrands().catch(() => []),
             categoryService.getCategories({ size: 500 }).then(res => res.content || res).catch(() => [])
         ]);
@@ -76,6 +78,12 @@ export default async function ProductsPage({
                 <div className="max-w-md font-semibold text-slate-900 line-clamp-2">
                     {product.name}
                 </div>
+            )
+        },
+        {
+            header: "Durum",
+            cell: (product) => (
+                <ProductStatusToggle productId={Number(product.id)} initialActive={product.active !== false} />
             )
         },
         {
@@ -136,7 +144,8 @@ export default async function ProductsPage({
             searchParams={{
                 search,
                 brandId,
-                categoryId
+                categoryId,
+                active
             }}
         />
     );
