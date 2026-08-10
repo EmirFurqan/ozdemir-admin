@@ -11,11 +11,17 @@ export async function getProductsForSelect() {
         const res = await fetchAPI("/products?page=0&size=2000&grouped=false");
         const products = res.content || [];
 
-        // Map to lightweight object
+        // Map to object containing images, features and key details
         return products.map((p: any) => ({
             id: p.id,
             code: p.code,
-            name: p.name
+            name: p.name,
+            variantLabel: p.variantLabel,
+            price: p.price,
+            stock: p.stock,
+            imageUrl: p.imageUrl,
+            images: p.images || [],
+            features: p.features || []
         }));
     } catch (error) {
         console.error("Failed to fetch products for select:", error);

@@ -58,6 +58,7 @@ interface VariantProduct {
     price: number;
     stock: number;
     images?: GroupImage[];
+    features?: GroupFeature[];
 }
 
 export default function ProductGroupEditor({
@@ -95,6 +96,10 @@ export default function ProductGroupEditor({
     const [individualImages, setIndividualImages] = useState(false);
     const [expandedVariantImages, setExpandedVariantImages] = useState<number | null>(null);
     const [isUploadingVariantImage, setIsUploadingVariantImage] = useState<number | null>(null);
+
+    // Individual features mode
+    const [individualFeatures, setIndividualFeatures] = useState(false);
+    const [expandedVariantFeatures, setExpandedVariantFeatures] = useState<number | null>(null);
 
     // Product variants
     const [variants, setVariants] = useState<VariantProduct[]>([]);
@@ -181,6 +186,11 @@ export default function ProductGroupEditor({
                 setIndividualImages(true);
             }
 
+            const isIndividualFeats = group?.individualFeatures === true;
+            if (isIndividualFeats) {
+                setIndividualFeatures(true);
+            }
+
             setVariants(
                 products.map((p) => ({
                     productId: p.id,
@@ -189,11 +199,20 @@ export default function ProductGroupEditor({
                     code: p.code || "",
                     price: p.price || 0,
                     stock: p.stock || 0,
-                    images: isIndividualMode && p.images ? p.images.map((img: any) => ({
-                        url: img.url,
-                        isMain: img.isMain,
-                        displayOrder: img.displayOrder || 0,
-                    })) : [],
+                    images: p.images && p.images.length > 0
+                        ? p.images.map((img: any) => ({
+                            url: img.url,
+                            isMain: img.isMain,
+                            displayOrder: img.displayOrder || 0,
+                        }))
+                        : p.imageUrl ? [{ url: p.imageUrl, isMain: true, displayOrder: 0 }] : [],
+                    features: p.features && p.features.length > 0
+                        ? p.features.map((f: any) => ({
+                            feature: f.feature,
+                            description: f.description,
+                            displayOrder: f.displayOrder || 0,
+                        }))
+                        : [],
                 }))
             );
 
@@ -281,6 +300,20 @@ export default function ProductGroupEditor({
                 code: prod.code || "",
                 price: prod.price || 0,
                 stock: prod.stock || 0,
+                images: prod.images && prod.images.length > 0
+                    ? prod.images.map((img: any) => ({
+                        url: img.url,
+                        isMain: img.isMain,
+                        displayOrder: img.displayOrder || 0,
+                    }))
+                    : prod.imageUrl ? [{ url: prod.imageUrl, isMain: true, displayOrder: 0 }] : [],
+                features: prod.features && prod.features.length > 0
+                    ? prod.features.map((f: any) => ({
+                        feature: f.feature,
+                        description: f.description,
+                        displayOrder: f.displayOrder || 0,
+                    }))
+                    : [],
             },
         ]);
         setSelectedProductId("");
@@ -409,6 +442,38 @@ export default function ProductGroupEditor({
         });
     };
 
+    // Variant Features logic
+    const handleAddVariantFeature = (variantIndex: number) => {
+        setVariants((prev) => {
+            const updated = [...prev];
+            const feats = [...(updated[variantIndex].features || [])];
+            feats.push({ feature: "", description: "", displayOrder: feats.length });
+            updated[variantIndex] = { ...updated[variantIndex], features: feats };
+            return updated;
+        });
+    };
+
+    const handleUpdateVariantFeature = (variantIndex: number, featIndex: number, key: "feature" | "description", val: string) => {
+        setVariants((prev) => {
+            const updated = [...prev];
+            const feats = [...(updated[variantIndex].features || [])];
+            feats[featIndex] = { ...feats[featIndex], [key]: val };
+            updated[variantIndex] = { ...updated[variantIndex], features: feats };
+            return updated;
+        });
+    };
+
+    const handleRemoveVariantFeature = (variantIndex: number, featIndex: number) => {
+        setVariants((prev) => {
+            const updated = [...prev];
+            const feats = [...(updated[variantIndex].features || [])];
+            feats.splice(featIndex, 1);
+            feats.forEach((f, i) => (f.displayOrder = i));
+            updated[variantIndex] = { ...updated[variantIndex], features: feats };
+            return updated;
+        });
+    };
+
     // Images logic
     const handleAddImage = (url: string) => {
         if (!url.trim()) return;
@@ -487,9 +552,11 @@ export default function ProductGroupEditor({
                 images,
                 features,
                 individualImages,
+                individualFeatures,
                 products: variants.map((v) => ({
                     ...v,
-                    images: individualImages ? (v.images || []) : undefined,
+                    images: individualImages ? (v.images || []) : (v.images && v.images.length > 0 ? v.images : undefined),
+                    features: individualFeatures ? (v.features || []) : (v.features && v.features.length > 0 ? v.features : undefined),
                 })),
             };
 
@@ -901,16 +968,44 @@ export default function ProductGroupEditor({
                                 <Sliders className="w-5 h-5 text-red-600" />
                                 <h3 className="font-bold text-slate-900 text-base">Teknik Özellik Tablosu</h3>
                             </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleAddFeature}
-                                className="text-xs text-red-600 border-red-200 hover:bg-red-50"
-                            >
-                                <Plus className="w-3.5 h-3.5 mr-1" /> Özellik Ekle
-                            </Button>
+                            <div className="flex items-center gap-3">
+                                {/* Individual Features Toggle */}
+                                <button
+                                    type="button"
+                                    onClick={() => setIndividualFeatures(!individualFeatures)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                                        individualFeatures
+                                            ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                            : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                    }`}
+                                    title={individualFeatures ? "Bireysel özellikler aktif — her ürünün kendi teknik özellikleri olabilir" : "Tüm ürünler aynı özellikleri paylaşır"}
+                                >
+                                    {individualFeatures ? (
+                                        <ToggleRight className="w-4 h-4 text-amber-600" />
+                                    ) : (
+                                        <ToggleLeft className="w-4 h-4" />
+                                    )}
+                                    {individualFeatures ? "Bireysel Özellikler Aktif" : "Bireysel Özellikler"}
+                                </button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddFeature}
+                                    className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                    <Plus className="w-3.5 h-3.5 mr-1" /> Özellik Ekle
+                                </Button>
+                            </div>
                         </div>
+                        {individualFeatures && (
+                            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                                <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <p className="text-xs text-amber-700 leading-relaxed">
+                                    <strong>Bireysel teknik özellik modu aktif.</strong> Aşağıdaki ortak teknik özellikler varsayılan olarak gruba tanımlanır. Ek olarak, aşağıdaki ürün tablosunda her ürüne özel teknik özellik ekleyip düzenleyebilirsiniz.
+                                </p>
+                            </div>
+                        )}
 
                         {features.length === 0 ? (
                             <div className="p-8 text-center border border-slate-200 rounded-xl text-xs text-slate-400">
@@ -1003,13 +1098,14 @@ export default function ProductGroupEditor({
                                 <th className="p-3.5 w-28">Fiyat</th>
                                 <th className="p-3.5 w-24">Stok</th>
                                 {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
+                                {individualFeatures && <th className="p-3.5 w-28 text-center">Özellikler</th>}
                                 <th className="p-3.5 text-right w-20">İşlem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
                             {variants.length === 0 ? (
                                 <tr>
-                                    <td colSpan={individualImages ? 8 : 7} className="p-8 text-center text-slate-400 italic">
+                                    <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
                                         Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz.
                                     </td>
                                 </tr>
@@ -1087,6 +1183,30 @@ export default function ProductGroupEditor({
                                                     </button>
                                                 </td>
                                             )}
+                                            {individualFeatures && (
+                                                <td className="p-3.5 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpandedVariantFeatures(expandedVariantFeatures === idx ? null : idx)}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                                                            expandedVariantFeatures === idx
+                                                                ? "bg-amber-100 text-amber-700 border-amber-300"
+                                                                : (v.features && v.features.length > 0)
+                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                                        }`}
+                                                        title={`${(v.features || []).length} bireysel teknik özellik`}
+                                                    >
+                                                        <Sliders className="w-3.5 h-3.5" />
+                                                        {(v.features || []).length}
+                                                        {expandedVariantFeatures === idx ? (
+                                                            <ChevronUp className="w-3 h-3" />
+                                                        ) : (
+                                                            <ChevronDown className="w-3 h-3" />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            )}
                                             <td className="p-3.5 text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <Link href={`/products/${v.productId}`} target="_blank">
@@ -1112,7 +1232,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Images Panel */}
                                         {individualImages && expandedVariantImages === idx && (
                                             <tr>
-                                                <td colSpan={7} className="p-0">
+                                                <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1196,6 +1316,72 @@ export default function ProductGroupEditor({
                                                                                 <Trash2 className="w-3 h-3" />
                                                                             </button>
                                                                         </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {/* Expandable Individual Features Panel */}
+                                        {individualFeatures && expandedVariantFeatures === idx && (
+                                            <tr>
+                                                <td colSpan={7 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                    <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                                                                <Sliders className="w-4 h-4 text-amber-600" />
+                                                                {v.variantLabel || v.name || `Ürün #${v.productId}`} — Bireysel Teknik Özellikler
+                                                            </h4>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleAddVariantFeature(idx)}
+                                                                    className="text-xs text-amber-700 border-amber-300 hover:bg-amber-100 bg-white"
+                                                                >
+                                                                    <Plus className="w-3.5 h-3.5 mr-1" /> Özellik Ekle
+                                                                </Button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setExpandedVariantFeatures(null)}
+                                                                    className="p-1 text-amber-500 hover:text-amber-700 cursor-pointer"
+                                                                >
+                                                                    <X className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {(!v.features || v.features.length === 0) ? (
+                                                            <div className="p-4 text-center border border-dashed border-amber-300 rounded-lg bg-amber-50/50">
+                                                                <Sliders className="w-6 h-6 text-amber-300 mx-auto mb-1" />
+                                                                <p className="text-[11px] text-amber-500">Bu ürüne özel teknik özellik eklenmemiş.</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                                                                {v.features.map((feat, featIdx) => (
+                                                                    <div key={featIdx} className="flex gap-2 items-center">
+                                                                        <Input
+                                                                            placeholder="Özellik (Örn: Depo Hacmi)"
+                                                                            value={feat.feature}
+                                                                            onChange={(e) => handleUpdateVariantFeature(idx, featIdx, "feature", e.target.value)}
+                                                                            className="bg-white text-xs flex-1 border-amber-200"
+                                                                        />
+                                                                        <Input
+                                                                            placeholder="Değer (Örn: 600 cc)"
+                                                                            value={feat.description}
+                                                                            onChange={(e) => handleUpdateVariantFeature(idx, featIdx, "description", e.target.value)}
+                                                                            className="bg-white text-xs flex-1 border-amber-200"
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveVariantFeature(idx, featIdx)}
+                                                                            className="text-amber-400 hover:text-red-600 p-1.5 cursor-pointer"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
                                                                     </div>
                                                                 ))}
                                                             </div>
