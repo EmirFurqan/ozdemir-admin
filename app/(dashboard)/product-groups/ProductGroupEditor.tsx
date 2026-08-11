@@ -239,10 +239,8 @@ export default function ProductGroupEditor({
                 }))
             );
 
-            // Populate shared images from group or first product
-            if (group?.imageUrl) {
-                setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
-            } else if (!isIndividualMode && products[0]?.images && products[0].images.length > 0) {
+            // Populate shared images: Prioritize all shared images from products[0] if shared mode
+            if (!isIndividualMode && products[0]?.images && products[0].images.length > 0) {
                 setImages(
                     products[0].images.map((img: any) => ({
                         url: img.url,
@@ -250,6 +248,8 @@ export default function ProductGroupEditor({
                         displayOrder: img.displayOrder || 0,
                     }))
                 );
+            } else if (group?.imageUrl) {
+                setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
             } else {
                 setImages([]);
             }
