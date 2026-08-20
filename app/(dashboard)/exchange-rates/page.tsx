@@ -53,9 +53,15 @@ export default function ExchangeRatesPage() {
     }, []);
 
     const handleSaveRate = async (rateObj: ExchangeRate) => {
-        const valStr = editRates[rateObj.id];
-        if (!valStr || isNaN(Number(valStr))) {
+        let valStr = editRates[rateObj.id];
+        if (!valStr) {
             alert("Lütfen geçerli bir kur değeri girin.");
+            return;
+        }
+
+        valStr = valStr.toString().trim().replace(",", ".");
+        if (isNaN(Number(valStr)) || Number(valStr) <= 0) {
+            alert("Lütfen 0'dan büyük geçerli bir kur değeri girin (örn: 36.50).");
             return;
         }
 
@@ -65,8 +71,11 @@ export default function ExchangeRatesPage() {
             const updated = await exchangeRateService.updateRate(rateObj.id, newRate);
             if (updated) {
                 setRates((prev) => prev.map((r) => (r.id === rateObj.id ? updated : r)));
-                setSuccessMessage(`${rateObj.currencyCode} kuru başarıyla güncellendi!`);
+                setEditRates((prev) => ({ ...prev, [rateObj.id]: updated.rate.toString() }));
+                setSuccessMessage(`${rateObj.currencyCode} kuru başarıyla (${updated.rate} ₺) olarak güncellendi!`);
                 setTimeout(() => setSuccessMessage(""), 4000);
+            } else {
+                alert("Kur güncellenemedi. Lütfen backend bağlantısını kontrol edin.");
             }
         } catch (error) {
             console.error("Kur güncellenemedi:", error);

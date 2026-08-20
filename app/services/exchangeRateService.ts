@@ -1,4 +1,5 @@
 import { fetchAPI } from "../lib/api";
+import { updateExchangeRateAction, syncLiveExchangeRatesAction } from "../actions/exchangeRate";
 
 export interface ExchangeRate {
     id: number;
@@ -16,6 +17,12 @@ export const exchangeRateService = {
     },
 
     updateRate: async (id: number, rate: number): Promise<ExchangeRate | null> => {
+        // Try server action first
+        const res = await updateExchangeRateAction(id, rate);
+        if (res.success && res.data) {
+            return res.data;
+        }
+        // Fallback to fetchAPI
         return fetchAPI(`/exchange-rates/${id}`, {
             method: "PUT",
             body: JSON.stringify({ rate }),
@@ -23,6 +30,12 @@ export const exchangeRateService = {
     },
 
     syncLiveRates: async (): Promise<ExchangeRate[]> => {
+        // Try server action first
+        const res = await syncLiveExchangeRatesAction();
+        if (res.success && res.data) {
+            return res.data;
+        }
+        // Fallback to fetchAPI
         return (await fetchAPI("/exchange-rates/sync-live", { method: "POST" })) || [];
     }
 };
