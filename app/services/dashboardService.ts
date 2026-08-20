@@ -1,4 +1,5 @@
 import { fetchAPI } from "../lib/api";
+import { ExchangeRate } from "./exchangeRateService";
 
 export interface OverviewStats {
     totalProducts: number;
@@ -17,16 +18,26 @@ export interface OverviewStats {
     zeroPriceProductCount: number;
 }
 
+export interface ConsolidatedFinancials {
+    totalInventoryValueExclVatTRY: number;
+    totalInventoryValueInclVatTRY: number;
+    totalCatalogPriceExclVatTRY: number;
+    totalCatalogPriceInclVatTRY: number;
+}
+
 export interface CurrencyFinancialStats {
     currencyId: number;
     currencyCode: string;
     currencySymbol: string;
+    exchangeRate: number;
     productCount: number;
     totalStockUnits: number;
     totalCatalogPriceExclVat: number;
     totalCatalogPriceInclVat: number;
     totalInventoryValueExclVat: number;
     totalInventoryValueInclVat: number;
+    totalInventoryValueExclVatTRY: number;
+    totalInventoryValueInclVatTRY: number;
     averagePrice: number;
 }
 
@@ -39,11 +50,15 @@ export interface BrandStats {
     activeProductCount: number;
     totalStockUnits: number;
     outOfStockCount: number;
-    financials: CurrencyFinancialStats[];
+    financials?: CurrencyFinancialStats[];
     totalInventoryValueExclVat: number;
     totalInventoryValueInclVat: number;
     totalCatalogPriceExclVat: number;
     totalCatalogPriceInclVat: number;
+    consolidatedTotalInventoryValueExclVatTRY: number;
+    consolidatedTotalInventoryValueInclVatTRY: number;
+    consolidatedTotalCatalogPriceExclVatTRY: number;
+    consolidatedTotalCatalogPriceInclVatTRY: number;
     primaryCurrencySymbol: string;
 }
 
@@ -53,7 +68,8 @@ export interface CategoryStats {
     productCount: number;
     productPercentage: number;
     totalStockUnits: number;
-    financials: CurrencyFinancialStats[];
+    consolidatedTotalInventoryValueExclVatTRY: number;
+    financials?: CurrencyFinancialStats[];
 }
 
 export interface StockHealthStats {
@@ -77,14 +93,18 @@ export interface TopProductItem {
     priceWithVat: number;
     currencySymbol: string;
     currencyId: number;
+    priceInTRY: number;
     totalInventoryValueExclVat: number;
     totalInventoryValueInclVat: number;
+    totalInventoryValueExclVatTRY: number;
     imageUrl: string | null;
     viewCount: number;
 }
 
 export interface DashboardStats {
     overview: OverviewStats;
+    consolidatedTRY: ConsolidatedFinancials;
+    exchangeRates: ExchangeRate[];
     currencyFinancials: CurrencyFinancialStats[];
     brandStats: BrandStats[];
     categoryStats: CategoryStats[];

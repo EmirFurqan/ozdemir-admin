@@ -24,7 +24,9 @@ import {
     ImageOff,
     ExternalLink,
     ChevronRight,
-    CircleDollarSign
+    CircleDollarSign,
+    ArrowRightLeft,
+    Sparkles
 } from "lucide-react";
 import { dashboardService, DashboardStats, BrandStats, CurrencyFinancialStats } from "../services/dashboardService";
 import { DonutChart, DonutSegment } from "../components/charts/DonutChart";
@@ -38,12 +40,12 @@ export default function AdminDashboard() {
 
     // Filters
     const [selectedCurrencyId, setSelectedCurrencyId] = useState<number | "ALL">("ALL");
-    const [brandChartMetric, setBrandChartMetric] = useState<"productCount" | "inventoryValue" | "catalogPrice">("productCount");
+    const [brandChartMetric, setBrandChartMetric] = useState<"productCount" | "inventoryValueTRY" | "inventoryValueRaw">("inventoryValueTRY");
     const [includeVat, setIncludeVat] = useState<boolean>(false);
 
     // Table Search & Sort
     const [brandSearch, setBrandSearch] = useState<string>("");
-    const [brandSortKey, setBrandSortKey] = useState<keyof BrandStats>("productCount");
+    const [brandSortKey, setBrandSortKey] = useState<keyof BrandStats>("consolidatedTotalInventoryValueExclVatTRY");
     const [brandSortAsc, setBrandSortAsc] = useState<boolean>(false);
 
     const loadStats = async (isManualRefresh = false) => {
@@ -117,9 +119,7 @@ export default function AdminDashboard() {
         if (!stats || !stats.currencyFinancials) return null;
 
         if (selectedCurrencyId === "ALL") {
-            // Find dominant (usually TRY 160 or first with items)
-            const tryStats = stats.currencyFinancials.find((c) => c.currencyId === 160);
-            return tryStats || stats.currencyFinancials[0] || null;
+            return null; // Will show Consolidated TRY
         }
 
         return stats.currencyFinancials.find((c) => c.currencyId === selectedCurrencyId) || null;
@@ -133,11 +133,13 @@ export default function AdminDashboard() {
             let val = brand.productCount;
             let sub = `%${brand.productPercentage.toFixed(1)}`;
 
-            if (brandChartMetric === "inventoryValue") {
+            if (brandChartMetric === "inventoryValueTRY") {
+                val = includeVat
+                    ? brand.consolidatedTotalInventoryValueInclVatTRY
+                    : brand.consolidatedTotalInventoryValueExclVatTRY;
+                sub = formatMoney(val, "₺");
+            } else if (brandChartMetric === "inventoryValueRaw") {
                 val = includeVat ? brand.totalInventoryValueInclVat : brand.totalInventoryValueExclVat;
-                sub = formatMoney(val, brand.primaryCurrencySymbol);
-            } else if (brandChartMetric === "catalogPrice") {
-                val = includeVat ? brand.totalCatalogPriceInclVat : brand.totalCatalogPriceExclVat;
                 sub = formatMoney(val, brand.primaryCurrencySymbol);
             }
 
@@ -149,22 +151,21 @@ export default function AdminDashboard() {
         });
     }, [stats, brandChartMetric, includeVat]);
 
-    // Prepare Bar Chart Data
+    // Prepare Bar Chart Data (Consolidated TRY by default)
     const barChartData = useMemo<BarItem[]>(() => {
         if (!stats || !stats.brandStats) return [];
 
         return stats.brandStats.slice(0, 7).map((brand) => {
-            const exclVal = brand.totalInventoryValueExclVat || 0;
-            const inclVal = brand.totalInventoryValueInclVat || 0;
-            const sym = brand.primaryCurrencySymbol || "₺";
+            const exclValTRY = brand.consolidatedTotalInventoryValueExclVatTRY || 0;
+            const inclValTRY = brand.consolidatedTotalInventoryValueInclVatTRY || 0;
 
             return {
                 label: brand.brandName,
-                value: exclVal,
-                secondaryValue: inclVal,
+                value: exclValTRY,
+                secondaryValue: inclValTRY,
                 subLabel: `${brand.productCount} Ürün • ${brand.totalStockUnits} Stok`,
-                formattedValue: formatMoney(exclVal, sym),
-                formattedSecondaryValue: formatMoney(inclVal, sym),
+                formattedValue: formatMoney(exclValTRY, "₺"),
+                formattedSecondaryValue: formatMoney(inclValTRY, "₺"),
             };
         });
     }, [stats]);
@@ -182,7 +183,7 @@ export default function AdminDashboard() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <p className="text-slate-500 font-medium text-sm animate-pulse">İstatistikler ve portföy verileri yükleniyor...</p>
+                <p className="text-slate-500 font-medium text-sm animate-pulse">İstatistikler ve konsolide portföy verileri yükleniyor...</p>
             </div>
         );
     }
@@ -192,7 +193,7 @@ export default function AdminDashboard() {
             <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto my-12">
                 <ShieldAlert className="w-12 h-12 text-amber-500 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-slate-800 mb-1">Veriler Alınamadı</h3>
-                <p className="text-sm text-slate-500 mb-4">Sunucu ile bağlantı kurulamadı veya henüz veri bulunmuyor.</p>
+                <p className="text-sm text-slate-500 mb-4">Sunucu ile bağlantı kurulamadı veya backend yeniden başlatılmayı bekliyor.</p>
                 <button
                     onClick={() => loadStats(true)}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition inline-flex items-center gap-2"
@@ -203,32 +204,42 @@ export default function AdminDashboard() {
         );
     }
 
-    const { overview, stockHealth, currencyFinancials, categoryStats, topValueProducts, topViewedProducts } = stats;
+    const { overview, stockHealth, currencyFinancials, categoryStats, topValueProducts, topViewedProducts, consolidatedTRY, exchangeRates } = stats;
+
+    const usdRate = exchangeRates?.find((r) => r.currencyCode === "USD")?.rate || 36.50;
+    const eurRate = exchangeRates?.find((r) => r.currencyCode === "EUR")?.rate || 38.20;
 
     return (
         <div className="space-y-8 pb-12">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
                             Admin Yönetim Paneli
                         </h1>
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
-                            Canlı Veri
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-emerald-600" /> Hızlı Veri
                         </span>
                     </div>
                     <p className="text-slate-500 text-sm">
-                        Ürün kataloğu, marka dağılımları, stok sağlığı ve ciro/portföy değer analizi.
+                        Tüm ürünlerin USD ($) ve EUR (€) fiyatları güncel kurlarla TL'ye konsolide edilerek sunulmaktadır.
                     </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {lastUpdated && (
-                        <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-                            Son güncelleme: {lastUpdated}
-                        </span>
-                    )}
+                {/* Right controls: Live Exchange Rates Pills + Refresh */}
+                <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                        href="/exchange-rates"
+                        title="Döviz kurlarını düzenlemek için tıklayın"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200"
+                    >
+                        <Coins className="w-3.5 h-3.5 text-blue-600" />
+                        <span>1 $ = {usdRate.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+                        <span className="text-slate-300">•</span>
+                        <span>1 € = {eurRate.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</span>
+                    </Link>
+
                     <button
                         onClick={() => loadStats(true)}
                         disabled={refreshing}
@@ -240,21 +251,21 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Currency Selector Bar */}
+            {/* Currency Filter Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100/80 p-2 rounded-2xl border border-slate-200">
                 <div className="flex items-center gap-1.5 overflow-x-auto py-1">
                     <span className="text-xs font-bold text-slate-500 px-3 uppercase tracking-wider flex items-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5 text-slate-400" /> Para Birimi:
+                        <Coins className="w-3.5 h-3.5 text-slate-400" /> Görünüm:
                     </span>
                     <button
                         onClick={() => setSelectedCurrencyId("ALL")}
                         className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                             selectedCurrencyId === "ALL"
-                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80"
+                                ? "bg-blue-600 text-white shadow-sm"
                                 : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
                         }`}
                     >
-                        Tümü / Genel Bakış
+                        Tümü (Konsolide TL ₺)
                     </button>
                     {currencyFinancials.map((cur) => (
                         <button
@@ -276,7 +287,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="flex items-center gap-2 px-2">
-                    <span className="text-xs text-slate-500 font-medium">KDV Gösterimi:</span>
+                    <span className="text-xs text-slate-500 font-medium">KDV:</span>
                     <button
                         onClick={() => setIncludeVat(!includeVat)}
                         className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -294,20 +305,27 @@ export default function AdminDashboard() {
             {/* 4 Hero KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {/* Card 1: Depo Envanter / Ciro Değeri */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-6 rounded-2xl shadow-sm border border-blue-500/30">
+                <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-2xl shadow-sm border border-blue-500/30">
                     <div className="absolute right-3 -bottom-3 opacity-10 pointer-events-none">
                         <Boxes className="w-32 h-32 text-white" />
                     </div>
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-blue-100 uppercase tracking-wider">
-                            Depo Stok Değeri
+                        <span className="text-xs font-semibold text-blue-100 uppercase tracking-wider flex items-center gap-1">
+                            {selectedCurrencyId === "ALL" ? "Konsolide Depo Değeri (TL)" : `${activeCurrencySummary?.currencyCode} Depo Değeri`}
                         </span>
                         <div className="p-2 bg-white/15 rounded-xl backdrop-blur-xs">
                             <TrendingUp className="w-5 h-5 text-white" />
                         </div>
                     </div>
                     <div className="text-2xl md:text-3xl font-extrabold mb-1 tracking-tight">
-                        {activeCurrencySummary
+                        {selectedCurrencyId === "ALL"
+                            ? formatMoney(
+                                  includeVat
+                                      ? consolidatedTRY?.totalInventoryValueInclVatTRY
+                                      : consolidatedTRY?.totalInventoryValueExclVatTRY,
+                                  "₺"
+                              )
+                            : activeCurrencySummary
                             ? formatMoney(
                                   includeVat
                                       ? activeCurrencySummary.totalInventoryValueInclVat
@@ -317,12 +335,19 @@ export default function AdminDashboard() {
                             : "₺0"}
                     </div>
                     <p className="text-xs text-blue-100 font-medium">
-                        {includeVat ? "KDV Dahil" : "KDV Hariç (Net)"} Depo Fiziksel Değeri
+                        {includeVat ? "KDV Dahil" : "KDV Hariç (Net)"} Mevcut Fiziksel Depo Değeri
                     </p>
                     <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between text-[11px] text-blue-100">
                         <span>Karşıt Değer:</span>
                         <span className="font-bold text-white">
-                            {activeCurrencySummary
+                            {selectedCurrencyId === "ALL"
+                                ? formatMoney(
+                                      includeVat
+                                          ? consolidatedTRY?.totalInventoryValueExclVatTRY
+                                          : consolidatedTRY?.totalInventoryValueInclVatTRY,
+                                      "₺"
+                                  )
+                                : activeCurrencySummary
                                 ? formatMoney(
                                       includeVat
                                           ? activeCurrencySummary.totalInventoryValueExclVat
@@ -339,14 +364,21 @@ export default function AdminDashboard() {
                 <div className="relative overflow-hidden bg-white p-6 rounded-2xl shadow-xs border border-slate-200">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            Katalog Liste Değeri
+                            {selectedCurrencyId === "ALL" ? "Konsolide Liste Değeri (TL)" : `${activeCurrencySummary?.currencyCode} Liste Değeri`}
                         </span>
                         <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
                             <CircleDollarSign className="w-5 h-5" />
                         </div>
                     </div>
                     <div className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">
-                        {activeCurrencySummary
+                        {selectedCurrencyId === "ALL"
+                            ? formatMoney(
+                                  includeVat
+                                      ? consolidatedTRY?.totalCatalogPriceInclVatTRY
+                                      : consolidatedTRY?.totalCatalogPriceExclVatTRY,
+                                  "₺"
+                              )
+                            : activeCurrencySummary
                             ? formatMoney(
                                   includeVat
                                       ? activeCurrencySummary.totalCatalogPriceInclVat
@@ -359,11 +391,9 @@ export default function AdminDashboard() {
                         1'er Adet Liste Satış Fiyatı Toplamı ({includeVat ? "KDV Dahil" : "KDV Hariç"})
                     </p>
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
-                        <span>Ortalama Ürün Fiyatı:</span>
+                        <span>USD & EUR Kurları:</span>
                         <span className="font-bold text-slate-900">
-                            {activeCurrencySummary
-                                ? formatMoney(activeCurrencySummary.averagePrice, activeCurrencySummary.currencySymbol)
-                                : "₺0"}
+                            1$={usdRate.toFixed(2)}₺ • 1€={eurRate.toFixed(2)}₺
                         </span>
                     </div>
                 </div>
@@ -427,7 +457,6 @@ export default function AdminDashboard() {
 
             {/* Quality Alerts Banner */}
             {(overview.unbrandedProductCount > 0 ||
-                overview.noImageProductCount > 0 ||
                 overview.uncategorizedProductCount > 0 ||
                 overview.zeroPriceProductCount > 0) && (
                 <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -437,10 +466,10 @@ export default function AdminDashboard() {
                         </div>
                         <div>
                             <h4 className="text-sm font-bold text-amber-900">
-                                Katalog Veri Kalitesi ve İyileştirme Fırsatları
+                                Katalog Veri Kalitesi & İyileştirme Fırsatları
                             </h4>
                             <p className="text-xs text-amber-700 mt-0.5">
-                                Eksik bilgili ürünleri tamamlayarak müşteri deneyimini ve filtreleme kalitesini artırın:
+                                Eksik bilgili ürünleri tamamlayarak filtreleme ve katalog doğruluğunu artırın:
                             </p>
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                                 {overview.unbrandedProductCount > 0 && (
@@ -459,15 +488,6 @@ export default function AdminDashboard() {
                                     >
                                         <Layers className="w-3.5 h-3.5 text-amber-600" />
                                         <span>{overview.uncategorizedProductCount} Kategorisiz Ürün</span>
-                                    </Link>
-                                )}
-                                {overview.noImageProductCount > 0 && (
-                                    <Link
-                                        href="/products"
-                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white text-amber-900 border border-amber-200 text-xs font-semibold hover:bg-amber-100/50 transition"
-                                    >
-                                        <ImageOff className="w-3.5 h-3.5 text-amber-600" />
-                                        <span>{overview.noImageProductCount} Görselsiz Ürün</span>
                                     </Link>
                                 )}
                                 {overview.zeroPriceProductCount > 0 && (
@@ -510,24 +530,24 @@ export default function AdminDashboard() {
                                 Ürün Sayısı
                             </button>
                             <button
-                                onClick={() => setBrandChartMetric("inventoryValue")}
+                                onClick={() => setBrandChartMetric("inventoryValueTRY")}
                                 className={`flex-1 py-1.5 rounded-lg transition cursor-pointer ${
-                                    brandChartMetric === "inventoryValue"
+                                    brandChartMetric === "inventoryValueTRY"
                                         ? "bg-white text-slate-900 shadow-xs"
                                         : "text-slate-500 hover:text-slate-900"
                                 }`}
                             >
-                                Depo Değeri
+                                Depo Değeri (TL)
                             </button>
                             <button
-                                onClick={() => setBrandChartMetric("catalogPrice")}
+                                onClick={() => setBrandChartMetric("inventoryValueRaw")}
                                 className={`flex-1 py-1.5 rounded-lg transition cursor-pointer ${
-                                    brandChartMetric === "catalogPrice"
+                                    brandChartMetric === "inventoryValueRaw"
                                         ? "bg-white text-slate-900 shadow-xs"
                                         : "text-slate-500 hover:text-slate-900"
                                 }`}
                             >
-                                Katalog Değeri
+                                Orijinal Para Birimi
                             </button>
                         </div>
 
@@ -536,9 +556,7 @@ export default function AdminDashboard() {
                             totalLabel={
                                 brandChartMetric === "productCount"
                                     ? "Toplam Ürün"
-                                    : brandChartMetric === "inventoryValue"
-                                    ? "Depo Toplamı"
-                                    : "Katalog Toplamı"
+                                    : "Toplam Depo (TL)"
                             }
                             centerSubtext={
                                 brandChartMetric === "productCount"
@@ -550,7 +568,7 @@ export default function AdminDashboard() {
                             formatValue={(v) =>
                                 brandChartMetric === "productCount"
                                     ? v.toLocaleString("tr-TR")
-                                    : formatMoney(v, activeCurrencySummary?.currencySymbol || "₺")
+                                    : formatMoney(v, "₺")
                             }
                         />
                     </div>
@@ -563,19 +581,19 @@ export default function AdminDashboard() {
                             <div className="flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-indigo-600" />
                                 <h3 className="font-bold text-slate-900 text-base">
-                                    En Değerli Marka Envanterleri
+                                    En Değerli Marka Envanterleri (TL ₺)
                                 </h3>
                             </div>
                             <span className="text-xs text-slate-400 font-medium">İlk 7 Marka</span>
                         </div>
                         <p className="text-xs text-slate-500 mb-6">
-                            Markaların depodaki mevcut stok adetleri ile birim fiyatlarının çarpımından elde edilen toplam envanter değeri.
+                            Markaların depodaki mevcut stok adetleri ile birim fiyatlarının çarpımından elde edilen ve güncel kurlarla TL'ye çevrilen toplam envanter değeri.
                         </p>
 
                         <BarChart
                             data={barChartData}
-                            valueLabel="KDV Hariç Tutar"
-                            secondaryValueLabel="KDV Dahil Tutar"
+                            valueLabel="KDV Hariç Tutar (TL)"
+                            secondaryValueLabel="KDV Dahil Tutar (TL)"
                             color="from-blue-600 via-indigo-600 to-purple-600"
                             maxItems={7}
                         />
@@ -595,9 +613,18 @@ export default function AdminDashboard() {
 
             {/* Currency Detail Breakdown Cards */}
             <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Coins className="w-5 h-5 text-blue-600" /> Para Birimi Kırılımları ve Finansal Özet
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <Coins className="w-5 h-5 text-blue-600" /> Para Birimi Kırılımları ve TL Karşılıkları
+                    </h3>
+                    <Link
+                        href="/exchange-rates"
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    >
+                        Kurları Yönet <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {currencyFinancials.map((cur) => (
                         <div
@@ -621,21 +648,21 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                                 <span className="text-xs font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-700">
-                                    Ort. {formatMoney(cur.averagePrice, cur.currencySymbol)}
+                                    Kur: {cur.exchangeRate.toFixed(2)} ₺
                                 </span>
                             </div>
 
                             <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
                                 <div className="flex justify-between items-center text-slate-600">
-                                    <span>Depo Stok (KDV'siz):</span>
+                                    <span>Depo Stok (Orijinal):</span>
                                     <span className="font-bold text-slate-900">
                                         {formatMoney(cur.totalInventoryValueExclVat, cur.currencySymbol)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-slate-600">
-                                    <span>Depo Stok (KDV Dahil):</span>
+                                    <span>Depo Stok (TL Karşılığı):</span>
                                     <span className="font-bold text-emerald-700">
-                                        {formatMoney(cur.totalInventoryValueInclVat, cur.currencySymbol)}
+                                        {formatMoney(cur.totalInventoryValueExclVatTRY, "₺")}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-slate-600">
@@ -645,9 +672,9 @@ export default function AdminDashboard() {
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-slate-600">
-                                    <span>Katalog Fiyat (KDV Dahil):</span>
+                                    <span>Ortalama Ürün Fiyatı:</span>
                                     <span className="font-bold text-slate-700">
-                                        {formatMoney(cur.totalCatalogPriceInclVat, cur.currencySymbol)}
+                                        {formatMoney(cur.averagePrice, cur.currencySymbol)}
                                     </span>
                                 </div>
                             </div>
@@ -725,7 +752,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <Layers className="w-5 h-5 text-teal-600" />
-                            <h3 className="font-bold text-slate-900 text-base">Kategorilere Göre Dağılım</h3>
+                            <h3 className="font-bold text-slate-900 text-base">Kategorilere Göre Dağılım (TL)</h3>
                         </div>
                         <Link href="/categories" className="text-xs font-semibold text-blue-600 hover:underline">
                             Tüm Kategoriler
@@ -749,10 +776,10 @@ export default function AdminDashboard() {
                                     </div>
                                     <div className="text-right">
                                         <span className="font-bold text-slate-900 text-xs">
-                                            {cat.productCount} Ürün
+                                            {formatMoney(cat.consolidatedTotalInventoryValueExclVatTRY, "₺")}
                                         </span>
                                         <span className="text-slate-400 text-[11px] ml-1.5">
-                                            ({cat.totalStockUnits} Stok)
+                                            ({cat.productCount} Ürün)
                                         </span>
                                     </div>
                                 </div>
@@ -773,10 +800,10 @@ export default function AdminDashboard() {
                 <div className="p-6 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                         <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                            <Tags className="w-5 h-5 text-blue-600" /> Detaylı Marka Portföy & Değer Tablosu
+                            <Tags className="w-5 h-5 text-blue-600" /> Detaylı Marka Portföy & TL Ciro Tablosu
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
-                            Her markanın ürün sayısı, fiziksel stok adedi ve KDV'siz/KDV'li toplam portföy değerleri.
+                            Her markanın ürün sayısı, fiziksel stok adedi ve güncel kurlarla TL'ye çevrilmiş toplam envanter değerleri.
                         </p>
                     </div>
 
@@ -835,29 +862,29 @@ export default function AdminDashboard() {
                                     </div>
                                 </th>
                                 <th
-                                    onClick={() => handleSort("totalInventoryValueExclVat")}
+                                    onClick={() => handleSort("consolidatedTotalInventoryValueExclVatTRY")}
                                     className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition select-none text-right"
                                 >
                                     <div className="flex items-center justify-end gap-1.5">
-                                        <span>Depo Değeri (KDV'siz)</span>
+                                        <span>Depo Değeri (TL - KDV'siz)</span>
                                         <ArrowUpDown className="w-3 h-3 text-slate-400" />
                                     </div>
                                 </th>
                                 <th
-                                    onClick={() => handleSort("totalInventoryValueInclVat")}
+                                    onClick={() => handleSort("consolidatedTotalInventoryValueInclVatTRY")}
                                     className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition select-none text-right"
                                 >
                                     <div className="flex items-center justify-end gap-1.5">
-                                        <span>Depo Değeri (KDV Dahil)</span>
+                                        <span>Depo Değeri (TL - KDV Dahil)</span>
                                         <ArrowUpDown className="w-3 h-3 text-slate-400" />
                                     </div>
                                 </th>
                                 <th
-                                    onClick={() => handleSort("totalCatalogPriceExclVat")}
+                                    onClick={() => handleSort("consolidatedTotalCatalogPriceExclVatTRY")}
                                     className="py-3 px-4 cursor-pointer hover:bg-slate-100 transition select-none text-right"
                                 >
                                     <div className="flex items-center justify-end gap-1.5">
-                                        <span>Liste Toplamı (KDV'siz)</span>
+                                        <span>Liste Toplamı (TL)</span>
                                         <ArrowUpDown className="w-3 h-3 text-slate-400" />
                                     </div>
                                 </th>
@@ -866,7 +893,6 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredAndSortedBrands.map((brand, i) => {
-                                const sym = brand.primaryCurrencySymbol || "₺";
                                 return (
                                     <tr key={brand.brandId ?? `unbranded-${i}`} className="hover:bg-slate-50/80 transition">
                                         <td className="py-3.5 px-4">
@@ -896,13 +922,13 @@ export default function AdminDashboard() {
                                             {brand.totalStockUnits.toLocaleString("tr-TR")} Adet
                                         </td>
                                         <td className="py-3.5 px-4 text-right font-bold text-slate-900">
-                                            {formatMoney(brand.totalInventoryValueExclVat, sym)}
+                                            {formatMoney(brand.consolidatedTotalInventoryValueExclVatTRY, "₺")}
                                         </td>
                                         <td className="py-3.5 px-4 text-right font-bold text-emerald-700">
-                                            {formatMoney(brand.totalInventoryValueInclVat, sym)}
+                                            {formatMoney(brand.consolidatedTotalInventoryValueInclVatTRY, "₺")}
                                         </td>
                                         <td className="py-3.5 px-4 text-right font-semibold text-slate-600">
-                                            {formatMoney(brand.totalCatalogPriceExclVat, sym)}
+                                            {formatMoney(brand.consolidatedTotalCatalogPriceExclVatTRY, "₺")}
                                         </td>
                                         <td className="py-3.5 px-4 text-center">
                                             {brand.brandId ? (
@@ -926,7 +952,7 @@ export default function AdminDashboard() {
 
             {/* Top Products Showcase (2 Columns) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* En Yüksek Stok Değerine Sahip Ürünler */}
+                {/* En Yüksek Stok Değerine Sahip Ürünler (TL Cinsinden) */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -935,7 +961,7 @@ export default function AdminDashboard() {
                                 En Yüksek Depo Değerine Sahip Ürünler
                             </h3>
                         </div>
-                        <span className="text-xs text-slate-400 font-medium">Stok × Fiyat</span>
+                        <span className="text-xs text-slate-400 font-medium">Stok × TL Fiyat</span>
                     </div>
 
                     <div className="space-y-3">
@@ -960,10 +986,13 @@ export default function AdminDashboard() {
                                 </div>
                                 <div className="text-right shrink-0">
                                     <div className="text-xs font-extrabold text-slate-900">
-                                        {formatMoney(prod.totalInventoryValueExclVat, prod.currencySymbol)}
+                                        {formatMoney(prod.totalInventoryValueExclVatTRY, "₺")}
                                     </div>
                                     <div className="text-[10px] text-slate-400">
-                                        Birim: {formatMoney(prod.price, prod.currencySymbol)}
+                                        {prod.currencySymbol !== "₺" && (
+                                            <span className="mr-1">{formatMoney(prod.price, prod.currencySymbol)} •</span>
+                                        )}
+                                        {formatMoney(prod.priceInTRY, "₺")}
                                     </div>
                                 </div>
                             </div>
@@ -1007,7 +1036,7 @@ export default function AdminDashboard() {
                                         <span>{prod.viewCount.toLocaleString("tr-TR")} Görüntülenme</span>
                                     </div>
                                     <div className="text-[10px] text-slate-400">
-                                        Fiyat: {formatMoney(prod.price, prod.currencySymbol)}
+                                        {formatMoney(prod.price, prod.currencySymbol)}
                                     </div>
                                 </div>
                             </div>

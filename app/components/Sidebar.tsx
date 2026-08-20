@@ -19,7 +19,8 @@ import {
     LogOut,
     MoreVertical,
     FileText,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Coins
 } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
@@ -98,6 +99,7 @@ export function Sidebar({ user }: SidebarProps) {
                 { title: "Kataloglar", icon: FileText, href: "/catalogs" },
                 { title: "Markalar", icon: Tags, href: "/brands" },
                 { title: "Kategoriler", icon: Layers, href: "/categories" },
+                { title: "Döviz Kurları", icon: Coins, href: "/exchange-rates" },
                 { title: "Banner Yönetimi", icon: ImageIcon, href: "/banners" },
             ]
         },
