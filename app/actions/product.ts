@@ -35,11 +35,14 @@ export async function searchProductsForModal({
         const totalElements = res.totalElements ?? content.length;
 
         const products = content.map((p: any) => ({
+            ...p,
             id: p.id,
             code: p.code || "",
             name: p.name || "",
             variantLabel: p.variantLabel || "",
             price: p.price ?? 0,
+            currency: p.currency,
+            currencyId: p.currencyId,
             stock: p.stock ?? 0,
             imageUrl: p.imageUrl || (p.images && p.images[0]?.url) || "",
             images: p.images || [],
@@ -85,11 +88,14 @@ export async function getProductsForSelect(search?: string) {
         const products = res.content || [];
 
         return products.map((p: any) => ({
+            ...p,
             id: p.id,
             code: p.code || "",
             name: p.name || "",
             variantLabel: p.variantLabel || "",
             price: p.price ?? 0,
+            currency: p.currency,
+            currencyId: p.currencyId,
             stock: p.stock ?? 0,
             imageUrl: p.imageUrl || (p.images && p.images[0]?.url) || "",
             images: p.images || [],

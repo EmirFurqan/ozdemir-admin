@@ -196,28 +196,29 @@ export default function ProductSelectModal({
         onClose();
     };
 
-    // Helper to get currency info
-    const getCurrencyInfo = (p: any) => {
-        const cur = p.currency;
-        const curId = p.currencyId;
-        if (curId === 1 || cur === "$" || cur === "USD" || cur === 1) {
-            return { symbol: "$", code: "USD", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
-        }
-        if (curId === 20 || cur === "€" || cur === "EUR" || cur === "20") {
-            return { symbol: "€", code: "EUR", bg: "bg-blue-50 text-blue-700 border-blue-200" };
-        }
-        return { symbol: "₺", code: "TL", bg: "bg-slate-100 text-slate-700 border-slate-200" };
-    };
-
     const formatPrice = (product: any) => {
-        const priceVal = typeof product.price === "number" ? product.price : parseFloat(product.price) || 0;
-        const curInfo = getCurrencyInfo(product);
+        const priceVal = typeof product.price === "number" ? product.price : parseFloat(product.price);
+        if (priceVal === null || priceVal === undefined || isNaN(priceVal)) {
+            return <span className="font-mono text-slate-400">-</span>;
+        }
+
+        const cur = product.currency || (product.currencyId === 1 ? "$" : product.currencyId === 20 ? "€" : product.currencyId === 160 ? "₺" : "");
+
+        let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
+        if (cur === "$" || cur === "USD" || product.currencyId === 1) {
+            badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+        } else if (cur === "€" || cur === "EUR" || product.currencyId === 20) {
+            badgeStyle = "bg-blue-50 text-blue-700 border-blue-200";
+        }
+
         return (
-            <div className="font-mono text-slate-900 font-semibold flex items-center gap-1.5">
+            <div className="font-mono text-slate-900 font-semibold flex items-center gap-1.5 whitespace-nowrap">
                 <span>{priceVal.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${curInfo.bg}`}>
-                    {curInfo.symbol} {curInfo.code}
-                </span>
+                {cur ? (
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md border ${badgeStyle}`}>
+                        {cur}
+                    </span>
+                ) : null}
             </div>
         );
     };
