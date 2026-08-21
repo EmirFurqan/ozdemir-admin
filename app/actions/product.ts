@@ -6,22 +6,26 @@ import { redirect } from "next/navigation";
 
 export async function getProductsForSelect() {
     try {
-        // Fetch a large page to get most products. 
-        // Ideally backend should support "select" projection or we map it here.
-        const res = await fetchAPI("/products?page=0&size=2000&grouped=false");
+        // Fetch a large page to get all products ungrouped.
+        const res = await fetchAPI("/products?page=0&size=5000&grouped=false&active=all");
         const products = res.content || [];
 
         // Map to object containing images, features and key details
         return products.map((p: any) => ({
             id: p.id,
-            code: p.code,
-            name: p.name,
-            variantLabel: p.variantLabel,
-            price: p.price,
-            stock: p.stock,
-            imageUrl: p.imageUrl,
+            code: p.code || "",
+            name: p.name || "",
+            variantLabel: p.variantLabel || "",
+            price: p.price ?? 0,
+            stock: p.stock ?? 0,
+            imageUrl: p.imageUrl || "",
             images: p.images || [],
-            features: p.features || []
+            features: p.features || [],
+            brand: p.brand ? { id: p.brand.id, name: p.brand.name } : null,
+            category: p.category ? { id: p.category.id, name: p.category.name } : null,
+            groupCode: p.groupCode || (p.groups && p.groups[0]?.groupCode) || null,
+            groupName: p.groupName || (p.groups && p.groups[0]?.name) || null,
+            active: p.active !== false
         }));
     } catch (error) {
         console.error("Failed to fetch products for select:", error);

@@ -33,9 +33,11 @@ import {
     ToggleRight,
     ChevronDown,
     ChevronUp,
-    X
+    X,
+    CheckSquare
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
+import ProductSelectModal from "./ProductSelectModal";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false }) as any;
 
@@ -288,12 +290,19 @@ export default function ProductGroupEditor({
     }, [categories, brandId]);
     // Selectable products for group addition
     const [selectProducts, setSelectProducts] = useState<any[]>(allProducts || []);
+    const [isLoadingSelectProducts, setIsLoadingSelectProducts] = useState(false);
+    const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
 
     useEffect(() => {
         if (!selectProducts || selectProducts.length === 0) {
-            getProductsForSelect().then((data) => {
-                setSelectProducts(data || []);
-            });
+            setIsLoadingSelectProducts(true);
+            getProductsForSelect()
+                .then((data) => {
+                    setSelectProducts(data || []);
+                })
+                .finally(() => {
+                    setIsLoadingSelectProducts(false);
+                });
         }
     }, []);
 
@@ -323,6 +332,7 @@ export default function ProductGroupEditor({
                 code: prod.code || "",
                 price: prod.price || 0,
                 stock: prod.stock || 0,
+                active: prod.active !== false,
                 images: prod.images && prod.images.length > 0
                     ? prod.images.map((img: any) => ({
                         url: img.url,
@@ -340,6 +350,44 @@ export default function ProductGroupEditor({
             },
         ]);
         setSelectedProductId("");
+    };
+
+    const handleApplyModalSelection = (selectedIds: number[], selectedProductObjects: any[]) => {
+        const existingVariantMap = new Map<number, VariantProduct>();
+        variants.forEach((v) => existingVariantMap.set(v.productId, v));
+
+        const newVariants: VariantProduct[] = selectedIds.map((id) => {
+            if (existingVariantMap.has(id)) {
+                return existingVariantMap.get(id)!;
+            }
+
+            const prod = selectedProductObjects.find((p) => p.id === id) || selectProducts.find((p) => p.id === id);
+            return {
+                productId: id,
+                name: prod?.name || "",
+                variantLabel: prod?.variantLabel || "",
+                code: prod?.code || "",
+                price: prod?.price || 0,
+                stock: prod?.stock || 0,
+                active: prod?.active !== false,
+                images: prod?.images && prod.images.length > 0
+                    ? prod.images.map((img: any) => ({
+                        url: img.url,
+                        isMain: img.isMain,
+                        displayOrder: img.displayOrder || 0,
+                    }))
+                    : prod?.imageUrl ? [{ url: prod.imageUrl, isMain: true, displayOrder: 0 }] : [],
+                features: prod?.features && prod.features.length > 0
+                    ? prod.features.map((f: any) => ({
+                        feature: f.feature,
+                        description: f.description,
+                        displayOrder: f.displayOrder || 0,
+                    }))
+                    : [],
+            };
+        });
+
+        setVariants(newVariants);
     };
 
     const handleRemoveVariant = (productId: number) => {
@@ -1082,18 +1130,36 @@ export default function ProductGroupEditor({
                     </span>
                 </div>
 
-                {/* Combobox to Add Product */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                        Gruba Başka Bir Ürün Dahil Et
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                {/* Product Selection Controls: Modal Trigger + Fast Combobox */}
+                <div className="bg-gradient-to-br from-slate-50 to-slate-100/60 p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                <CheckSquare className="w-4 h-4 text-red-600" />
+                                Gruba Ürün Ekleme & Seçim
+                            </span>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Tablodan arama yaparak çoklu ürün seçebilir veya hızlı seçim kutusunu kullanabilirsiniz.
+                            </p>
+                        </div>
+
+                        <Button
+                            type="button"
+                            onClick={() => setIsSelectModalOpen(true)}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-10 px-5 rounded-xl shadow-md shadow-red-600/20 cursor-pointer flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <CheckSquare className="w-4 h-4" />
+                            Tablodan Ürün Seçimi Yap ({variants.length} Seçili)
+                        </Button>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                         <div className="flex-1">
                             <Combobox
                                 options={availableProducts}
                                 value={selectedProductId}
                                 onChange={setSelectedProductId}
-                                placeholder="Eklenecek Ürünü Seçin..."
+                                placeholder="Hızlı Tekli Ürün Seç..."
                                 searchPlaceholder="Kod veya ürün adı yazarak arayın..."
                                 emptyText="Uygun ürün bulunamadı."
                             />
@@ -1102,9 +1168,10 @@ export default function ProductGroupEditor({
                             type="button"
                             disabled={!selectedProductId}
                             onClick={handleAddSelectedProduct}
-                            className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-5"
+                            variant="outline"
+                            className="bg-white hover:bg-slate-50 text-slate-800 text-xs font-semibold px-5 h-10 rounded-xl border-slate-300 cursor-pointer"
                         >
-                            <Plus className="w-4 h-4 mr-1" /> Gruba Dahil Et
+                            <Plus className="w-4 h-4 mr-1 text-red-600" /> Hızlı Ekle
                         </Button>
                     </div>
                 </div>
@@ -1510,6 +1577,20 @@ export default function ProductGroupEditor({
                     </Button>
                 </div>
             </div>
+
+            {/* Product Selection Modal */}
+            <ProductSelectModal
+                isOpen={isSelectModalOpen}
+                onClose={() => setIsSelectModalOpen(false)}
+                allProducts={selectProducts}
+                selectedIds={variants.map((v) => v.productId)}
+                brands={brands}
+                categories={categories}
+                currentGroupId={groupId}
+                currentGroupCode={groupCode}
+                onApply={handleApplyModalSelection}
+                isLoading={isLoadingSelectProducts}
+            />
         </div>
     );
 }
