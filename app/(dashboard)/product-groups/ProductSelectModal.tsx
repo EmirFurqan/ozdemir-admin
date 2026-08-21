@@ -1,76 +1,92 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
     Search,
     Check,
     X,
     CheckSquare,
-    Square,
     Layers,
-    Filter,
-    Sparkles,
-    SlidersHorizontal,
     Package,
     RefreshCw,
-    AlertCircle,
-    ArrowUpDown,
     CheckCircle2,
     Tag,
-    Trash2
+    Trash2,
+    ChevronLeft,
+    ChevronRight,
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TableImage from "@/app/components/TableImage";
+import { searchProductsForModal } from "@/app/actions/product";
 
 interface ProductSelectModalProps {
     isOpen: boolean;
     onClose: () => void;
-    allProducts: any[];
-    selectedIds: number[];
+    initialSelectedProducts: any[];
     brands?: any[];
     categories?: any[];
     currentGroupId?: number;
     currentGroupCode?: string;
     onApply: (selectedIds: number[], selectedProductObjects: any[]) => void;
-    isLoading?: boolean;
 }
 
 export default function ProductSelectModal({
     isOpen,
     onClose,
-    allProducts = [],
-    selectedIds = [],
+    initialSelectedProducts = [],
     brands = [],
     categories = [],
     currentGroupId = 0,
     currentGroupCode = "",
     onApply,
-    isLoading = false,
 }: ProductSelectModalProps) {
-    // Local selection state (Set of product IDs)
-    const [selectedSet, setSelectedSet] = useState<Set<number>>(new Set(selectedIds));
+    // Map of currently selected products: productId -> product object
+    const [selectedMap, setSelectedMap] = useState<Map<number, any>>(new Map());
+
+    // Search and filter state
     const [searchQuery, setSearchQuery] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [brandFilter, setBrandFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
-    const [viewTab, setViewTab] = useState<"all" | "selected" | "unselected">("all");
-    const [pinSelectedAtTop, setPinSelectedAtTop] = useState(true);
+
+    // Server-side pagination state for browsed/searched products
+    const [page, setPage] = useState(0);
+    const [pageSize] = useState(40);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalElements, setTotalElements] = useState(0);
+    const [loading, setLoading] = useState(false);
 
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Sync local selection when modal opens
+    // Initialize selected items map when modal opens
     useEffect(() => {
         if (isOpen) {
-            setSelectedSet(new Set(selectedIds));
+            const map = new Map<number, any>();
+            initialSelectedProducts.forEach((p) => {
+                const id = p.productId || p.id;
+                if (id) {
+                    map.set(id, {
+                        ...p,
+                        id: id,
+                        productId: id,
+                    });
+                }
+            });
+            setSelectedMap(map);
             setSearchQuery("");
+            setDebouncedSearch("");
             setBrandFilter("all");
             setCategoryFilter("all");
-            setViewTab("all");
+            setPage(0);
+
             setTimeout(() => {
                 searchInputRef.current?.focus();
             }, 100);
         }
-    }, [isOpen, selectedIds]);
+    }, [isOpen, initialSelectedProducts]);
 
     // Handle ESC key to close
     useEffect(() => {
@@ -83,141 +99,136 @@ export default function ProductSelectModal({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [isOpen, onClose]);
 
-    // Fast map of products by ID
-    const productMap = useMemo(() => {
-        const map = new Map<number, any>();
-        allProducts.forEach((p) => {
-            map.set(p.id, p);
-        });
-        return map;
-    }, [allProducts]);
+    // Debounce search query input (300ms)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+            setPage(0);
+        }, 280);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
-    // Toggle single product selection
-    const toggleProduct = (id: number) => {
-        setSelectedSet((prev) => {
-            const next = new Set(prev);
+    // Fetch products from server whenever debouncedSearch, brandFilter, categoryFilter, or page changes
+    const fetchServerProducts = useCallback(async () => {
+        if (!isOpen) return;
+        setLoading(true);
+        try {
+            const res = await searchProductsForModal({
+                page,
+                size: pageSize,
+                search: debouncedSearch,
+                brandId: brandFilter,
+                categoryId: categoryFilter,
+            });
+
+            setSearchResults(res.content || []);
+            setTotalPages(res.totalPages || 1);
+            setTotalElements(res.totalElements || 0);
+        } catch (error) {
+            console.error("Error fetching products in modal:", error);
+            setSearchResults([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [isOpen, page, pageSize, debouncedSearch, brandFilter, categoryFilter]);
+
+    useEffect(() => {
+        fetchServerProducts();
+    }, [fetchServerProducts]);
+
+    // Toggle product selection
+    const toggleProduct = (product: any) => {
+        const id = product.productId || product.id;
+        if (!id) return;
+
+        setSelectedMap((prev) => {
+            const next = new Map(prev);
             if (next.has(id)) {
                 next.delete(id);
             } else {
-                next.add(id);
+                next.set(id, {
+                    ...product,
+                    id: id,
+                    productId: id,
+                });
             }
             return next;
         });
     };
 
-    // Filter matcher helper
-    const matchesFilter = (p: any, query: string, bFilter: string, cFilter: string) => {
-        if (bFilter !== "all") {
-            const bId = p.brand?.id || p.brandId;
-            if (!bId || bId.toString() !== bFilter) return false;
-        }
-        if (cFilter !== "all") {
-            const cId = p.category?.id || p.categoryId;
-            if (!cId || cId.toString() !== cFilter) return false;
-        }
-        if (!query) return true;
-
-        const q = query.toLowerCase().trim();
-        const code = (p.code || "").toLowerCase();
-        const name = (p.name || "").toLowerCase();
-        const vLabel = (p.variantLabel || "").toLowerCase();
-        const bName = (p.brand?.name || "").toLowerCase();
-        const cName = (p.category?.name || "").toLowerCase();
-        const gCode = (p.groupCode || "").toLowerCase();
-        const idStr = p.id.toString();
-
-        return (
-            code.includes(q) ||
-            name.includes(q) ||
-            vLabel.includes(q) ||
-            bName.includes(q) ||
-            cName.includes(q) ||
-            gCode.includes(q) ||
-            idStr.includes(q)
-        );
+    // Unselect product
+    const unselectProduct = (id: number) => {
+        setSelectedMap((prev) => {
+            const next = new Map(prev);
+            next.delete(id);
+            return next;
+        });
     };
 
-    // Selected products list (filtered or full based on user preference)
-    const selectedProductsList = useMemo(() => {
-        const list: any[] = [];
-        selectedSet.forEach((id) => {
-            const prod = productMap.get(id);
-            if (prod) {
-                list.push(prod);
-            }
-        });
-        return list;
-    }, [selectedSet, productMap]);
+    // Clear all selections
+    const handleClearAll = () => {
+        setSelectedMap(new Map());
+    };
 
-    // Compute partitioned & sorted product rows
-    const { displayedSelected, displayedUnselected } = useMemo(() => {
-        const selected: any[] = [];
-        const unselected: any[] = [];
-
-        // All selected products are preserved at the top
-        selectedProductsList.forEach((p) => {
-            selected.push(p);
-        });
-
-        // Unselected products filtered by search, brand, and category
-        allProducts.forEach((p) => {
-            if (!selectedSet.has(p.id)) {
-                if (matchesFilter(p, searchQuery, brandFilter, categoryFilter)) {
-                    unselected.push(p);
+    // Select all currently visible unselected search results
+    const handleSelectAllVisible = () => {
+        setSelectedMap((prev) => {
+            const next = new Map(prev);
+            searchResults.forEach((p) => {
+                const id = p.productId || p.id;
+                if (id) {
+                    next.set(id, {
+                        ...p,
+                        id: id,
+                        productId: id,
+                    });
                 }
-            }
-        });
-
-        return {
-            displayedSelected: selected,
-            displayedUnselected: unselected,
-        };
-    }, [allProducts, selectedProductsList, selectedSet, searchQuery, brandFilter, categoryFilter]);
-
-    // Total displayed list based on viewTab
-    const finalDisplayList = useMemo(() => {
-        if (viewTab === "selected") {
-            return displayedSelected;
-        }
-        if (viewTab === "unselected") {
-            return displayedUnselected;
-        }
-        // "all" mode: Selected ALWAYS first, then unselected
-        if (pinSelectedAtTop) {
-            return [...displayedSelected, ...displayedUnselected];
-        }
-        // If pin off: standard search across all
-        return allProducts.filter((p) => matchesFilter(p, searchQuery, brandFilter, categoryFilter));
-    }, [viewTab, pinSelectedAtTop, displayedSelected, displayedUnselected, allProducts, searchQuery, brandFilter, categoryFilter]);
-
-    // Select all currently filtered unselected items
-    const handleSelectAllFiltered = () => {
-        setSelectedSet((prev) => {
-            const next = new Set(prev);
-            displayedUnselected.forEach((p) => next.add(p.id));
+            });
             return next;
         });
-    };
-
-    // Deselect all items
-    const handleClearAllSelections = () => {
-        setSelectedSet(new Set());
     };
 
     // Handle Confirm / Apply
     const handleApply = () => {
-        const idsArray = Array.from(selectedSet);
-        const selectedObjs = idsArray
-            .map((id) => productMap.get(id))
-            .filter(Boolean);
-        onApply(idsArray, selectedObjs);
+        const idsArray = Array.from(selectedMap.keys());
+        const selectedObjects = Array.from(selectedMap.values());
+        onApply(idsArray, selectedObjects);
         onClose();
     };
 
+    // Helper to get currency symbol
+    const getCurrencySymbol = (p: any) => {
+        if (typeof p.currency === "string" && p.currency.trim()) return p.currency;
+        if (p.currencyId === 1 || p.currency === 1) return "$";
+        if (p.currencyId === 20 || p.currency === 20) return "€";
+        if (p.currencyId === 160 || p.currency === 160) return "₺";
+        return "₺";
+    };
+
+    const formatPrice = (product: any) => {
+        const priceVal = typeof product.price === "number" ? product.price : parseFloat(product.price) || 0;
+        const sym = getCurrencySymbol(product);
+        return (
+            <div className="font-mono text-slate-900 font-semibold flex items-center gap-1">
+                <span>{priceVal.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-1 py-0.5 rounded">
+                    {sym}
+                </span>
+            </div>
+        );
+    };
+
+    // Selected products array (always rendered at top)
+    const selectedList = useMemo(() => Array.from(selectedMap.values()), [selectedMap]);
+
+    // Unselected search results (rendered below pinned selected products)
+    const unselectedSearchResults = useMemo(() => {
+        return searchResults.filter((p) => !selectedMap.has(p.id || p.productId));
+    }, [searchResults, selectedMap]);
+
     if (!isOpen) return null;
 
-    const selectedCount = selectedSet.size;
-    const totalAvailableCount = allProducts.length;
+    const selectedCount = selectedMap.size;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
@@ -230,7 +241,7 @@ export default function ProductSelectModal({
             {/* Modal Dialog Card */}
             <div className="relative w-full max-w-6xl max-h-[92vh] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden z-10 animate-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
+                <div className="px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-white shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shadow-xs">
                             <Layers className="w-5 h-5" />
@@ -240,12 +251,12 @@ export default function ProductSelectModal({
                                 <h2 className="text-lg font-bold text-slate-900">
                                     Gruba Ürün Seçimi
                                 </h2>
-                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                                    {selectedCount} Seçili
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {selectedCount} Ürün Seçili
                                 </span>
                             </div>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                Ürünleri arayın ve işaretleyin. Seçili ürünler her zaman listenin en üstünde sabitlenir.
+                                Ürünleri arayın ve seçin. Seçtiğiniz ürünler her zaman en üstte sabit olarak listelenir.
                             </p>
                         </div>
                     </div>
@@ -262,17 +273,16 @@ export default function ProductSelectModal({
                     </div>
                 </div>
 
-                {/* Filter and Search Bar Section */}
-                <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200/80 space-y-3 shrink-0">
-                    {/* Top Row: Search Input + Brand + Category + View Tabs */}
+                {/* Filter & Search Bar Section (Fast & Minimal) */}
+                <div className="p-4 bg-slate-50 border-b border-slate-200/80 space-y-3 shrink-0">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                         {/* Search Input */}
-                        <div className="sm:col-span-5 relative">
+                        <div className="sm:col-span-6 relative">
                             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <Input
                                 ref={searchInputRef}
                                 type="text"
-                                placeholder="Ürün kodu, adı, etiket veya ID ile ara..."
+                                placeholder="Ürün kodu, ürün adı veya varyant ile arayın..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9 pr-8 bg-white border-slate-200 text-xs h-10 rounded-xl focus:ring-2 focus:ring-red-500/20"
@@ -293,7 +303,10 @@ export default function ProductSelectModal({
                             <div className="sm:col-span-3">
                                 <select
                                     value={brandFilter}
-                                    onChange={(e) => setBrandFilter(e.target.value)}
+                                    onChange={(e) => {
+                                        setBrandFilter(e.target.value);
+                                        setPage(0);
+                                    }}
                                     className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 cursor-pointer"
                                 >
                                     <option value="all">Tüm Markalar</option>
@@ -308,10 +321,13 @@ export default function ProductSelectModal({
 
                         {/* Category Filter */}
                         {categories && categories.length > 0 && (
-                            <div className="sm:col-span-4">
+                            <div className="sm:col-span-3">
                                 <select
                                     value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    onChange={(e) => {
+                                        setCategoryFilter(e.target.value);
+                                        setPage(0);
+                                    }}
                                     className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 cursor-pointer"
                                 >
                                     <option value="all">Tüm Kategoriler</option>
@@ -324,311 +340,211 @@ export default function ProductSelectModal({
                             </div>
                         )}
                     </div>
-
-                    {/* Bottom Row: Quick Status Tabs & Action Helpers */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                        {/* View Tabs */}
-                        <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-semibold text-slate-600">
-                            <button
-                                type="button"
-                                onClick={() => setViewTab("all")}
-                                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                                    viewTab === "all"
-                                        ? "bg-white text-slate-900 shadow-xs"
-                                        : "hover:text-slate-900"
-                                }`}
-                            >
-                                Tümü ({totalAvailableCount})
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewTab("selected")}
-                                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                                    viewTab === "selected"
-                                        ? "bg-emerald-600 text-white shadow-xs"
-                                        : "hover:text-emerald-700 text-emerald-700"
-                                }`}
-                            >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                Seçilenler ({selectedCount})
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setViewTab("unselected")}
-                                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                                    viewTab === "unselected"
-                                        ? "bg-white text-slate-900 shadow-xs"
-                                        : "hover:text-slate-900"
-                                }`}
-                            >
-                                Seçilmeyenler ({Math.max(0, totalAvailableCount - selectedCount)})
-                            </button>
-                        </div>
-
-                        {/* Quick Selection Buttons */}
-                        <div className="flex items-center gap-2">
-                            {displayedUnselected.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleSelectAllFiltered}
-                                    className="text-xs font-semibold text-slate-700 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                                >
-                                    <CheckSquare className="w-3.5 h-3.5 text-red-600" />
-                                    {searchQuery || brandFilter !== "all" || categoryFilter !== "all"
-                                        ? `Filtrelenenleri Seç (${displayedUnselected.length})`
-                                        : "Tümünü Seç"}
-                                </button>
-                            )}
-
-                            {selectedCount > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleClearAllSelections}
-                                    className="text-xs font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    Seçimleri Temizle
-                                </button>
-                            )}
-                        </div>
-                    </div>
                 </div>
 
                 {/* Table Content Area */}
-                <div className="flex-1 overflow-y-auto min-h-[300px] relative divide-y divide-slate-100">
-                    {isLoading ? (
-                        <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-                            <RefreshCw className="w-8 h-8 animate-spin text-red-600" />
-                            <p className="text-xs font-medium">Ürün listesi yükleniyor...</p>
-                        </div>
-                    ) : finalDisplayList.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 px-4 text-center text-slate-500 space-y-3">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
-                                <Package className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <p className="font-semibold text-slate-800 text-sm">
-                                    {viewTab === "selected"
-                                        ? "Henüz hiç ürün seçilmedi."
-                                        : "Aramanıza veya filtrenize uygun ürün bulunamadı."}
-                                </p>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    {viewTab === "selected"
-                                        ? "Tablodan ürünlerin yanındaki kutucukları işaretleyerek ekleyebilirsiniz."
-                                        : "Farklı bir arama terimi veya filtre deneyebilirsiniz."}
-                                </p>
-                            </div>
-                            {searchQuery && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSearchQuery("");
-                                        setBrandFilter("all");
-                                        setCategoryFilter("all");
-                                        setViewTab("all");
-                                    }}
-                                    className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
-                                >
-                                    Filtreleri Temizle
-                                </button>
+                <div className="flex-1 overflow-y-auto min-h-[320px] relative divide-y divide-slate-100">
+                    <table className="w-full text-xs text-left border-collapse">
+                        <thead className="bg-slate-100/95 backdrop-blur-xs text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider sticky top-0 z-20 shadow-2xs">
+                            <tr>
+                                <th className="p-3.5 w-12 text-center">Seçim</th>
+                                <th className="p-3.5 w-16">Resim</th>
+                                <th className="p-3.5 w-36">Ürün Kodu</th>
+                                <th className="p-3.5">Ürün İsmi & Varyant</th>
+                                <th className="p-3.5 w-32">Marka / Kategori</th>
+                                <th className="p-3.5 w-24">Fiyat</th>
+                                <th className="p-3.5 w-20">Stok</th>
+                                <th className="p-3.5 w-28">Grup</th>
+                                <th className="p-3.5 w-20 text-center">Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                            {/* SECTION 1: PINNED SELECTED PRODUCTS (ALWAYS AT THE TOP) */}
+                            {selectedList.length > 0 && (
+                                <tr className="bg-emerald-500/10 border-y border-emerald-500/25 sticky top-[41px] z-10">
+                                    <td colSpan={9} className="px-4 py-2 font-bold text-emerald-800 text-[11px]">
+                                        <div className="flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                                SEÇİLEN ÜRÜNLER ({selectedList.length} Adet — En Üstte Sabitlendi)
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={handleClearAll}
+                                                className="text-emerald-700 hover:text-red-600 font-semibold text-[11px] hover:underline cursor-pointer flex items-center gap-1"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                                Tüm Seçimleri Kaldır
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             )}
-                        </div>
-                    ) : (
-                        <table className="w-full text-xs text-left border-collapse">
-                            <thead className="bg-slate-100/90 backdrop-blur-xs text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider sticky top-0 z-20 shadow-2xs">
-                                <tr>
-                                    <th className="p-3.5 w-12 text-center">
-                                        <div className="flex items-center justify-center">
+
+                            {selectedList.map((product) => {
+                                const id = product.productId || product.id;
+                                const img = product.images?.[0]?.url || product.imageUrl;
+                                const isInThisGroup = currentGroupId > 0 && product.groupCode === currentGroupCode;
+                                const hasOtherGroup = product.groupCode && product.groupCode !== currentGroupCode;
+
+                                return (
+                                    <tr
+                                        key={`selected-${id}`}
+                                        onClick={() => unselectProduct(id)}
+                                        className="bg-emerald-50/50 hover:bg-emerald-100/60 transition-colors cursor-pointer border-l-4 border-l-emerald-500"
+                                    >
+                                        <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                                             <input
                                                 type="checkbox"
-                                                checked={displayedUnselected.length === 0 && selectedCount > 0}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        handleSelectAllFiltered();
-                                                    } else {
-                                                        handleClearAllSelections();
-                                                    }
-                                                }}
-                                                className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300 cursor-pointer accent-red-600"
-                                                title="Tümünü Seç / Kaldır"
+                                                checked={true}
+                                                onChange={() => unselectProduct(id)}
+                                                className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-emerald-400 cursor-pointer accent-emerald-600"
                                             />
-                                        </div>
-                                    </th>
-                                    <th className="p-3.5 w-16">Resim</th>
-                                    <th className="p-3.5 w-36">Ürün Kodu</th>
-                                    <th className="p-3.5">Ürün İsmi & Bilgisi</th>
-                                    <th className="p-3.5 w-32">Marka / Kategori</th>
-                                    <th className="p-3.5 w-24">Fiyat</th>
-                                    <th className="p-3.5 w-20">Stok</th>
-                                    <th className="p-3.5 w-32">Mevcut Grup</th>
-                                    <th className="p-3.5 w-20 text-center">Durum</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
-                                {viewTab === "all" && displayedSelected.length > 0 && (
-                                    <tr className="bg-emerald-500/10 border-y border-emerald-500/20">
-                                        <td colSpan={9} className="px-4 py-2 font-bold text-emerald-800 text-[11px]">
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-1.5">
-                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                                    SEÇİLEN ÜRÜNLER ({displayedSelected.length} Adet — Her Zaman En Üstte)
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleClearAllSelections}
-                                                    className="text-emerald-700 hover:text-red-600 font-semibold text-[11px] hover:underline cursor-pointer"
-                                                >
-                                                    Seçimleri Kaldır
-                                                </button>
-                                            </div>
                                         </td>
-                                    </tr>
-                                )}
-
-                                {displayedSelected.map((product) => {
-                                    const isSelected = true;
-                                    const img = product.images?.[0]?.url || product.imageUrl;
-                                    const isInThisGroup = currentGroupId > 0 && product.groupCode === currentGroupCode;
-                                    const hasOtherGroup = product.groupCode && product.groupCode !== currentGroupCode;
-
-                                    return (
-                                        <tr
-                                            key={`selected-${product.id}`}
-                                            onClick={() => toggleProduct(product.id)}
-                                            className="bg-emerald-50/40 hover:bg-emerald-100/50 transition-colors cursor-pointer border-l-4 border-l-emerald-500"
-                                        >
-                                            <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => toggleProduct(product.id)}
-                                                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-emerald-400 cursor-pointer accent-emerald-600"
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <TableImage
-                                                    src={img}
-                                                    alt={product.name || product.code}
-                                                />
-                                            </td>
-                                            <td className="p-3.5">
-                                                <div className="font-mono text-slate-900 font-bold text-xs flex items-center gap-1">
-                                                    {product.code || "—"}
+                                        <td className="p-3.5">
+                                            <TableImage
+                                                src={img}
+                                                alt={product.name || product.code}
+                                            />
+                                        </td>
+                                        <td className="p-3.5">
+                                            <div className="font-mono text-slate-900 font-bold text-xs">
+                                                {product.code || "—"}
+                                            </div>
+                                            <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100/90 px-1.5 py-0.5 rounded">
+                                                ✓ Seçili
+                                            </span>
+                                        </td>
+                                        <td className="p-3.5">
+                                            <div className="font-semibold text-slate-900 line-clamp-1">
+                                                {product.name}
+                                            </div>
+                                            {product.variantLabel && (
+                                                <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                                    <Tag className="w-3 h-3 text-slate-400" />
+                                                    <span>Varyant: <b className="text-slate-700">{product.variantLabel}</b></span>
                                                 </div>
-                                                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-100/80 px-1.5 py-0.5 rounded">
-                                                    ✓ Seçili
-                                                </span>
-                                            </td>
-                                            <td className="p-3.5">
-                                                <div className="font-semibold text-slate-900 line-clamp-1">
-                                                    {product.name}
-                                                </div>
-                                                {product.variantLabel && (
-                                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                                        <Tag className="w-3 h-3 text-slate-400" />
-                                                        <span>Varyant: <b className="text-slate-700">{product.variantLabel}</b></span>
+                                            )}
+                                        </td>
+                                        <td className="p-3.5">
+                                            <div className="space-y-1">
+                                                {product.brand?.name && (
+                                                    <span className="inline-block text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
+                                                        {product.brand.name}
+                                                    </span>
+                                                )}
+                                                {product.category?.name && (
+                                                    <div className="text-[10px] text-slate-500 truncate max-w-[120px]">
+                                                        {product.category.name}
                                                     </div>
                                                 )}
-                                            </td>
-                                            <td className="p-3.5">
-                                                <div className="space-y-1">
-                                                    {product.brand?.name && (
-                                                        <span className="inline-block text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                                                            {product.brand.name}
-                                                        </span>
-                                                    )}
-                                                    {product.category?.name && (
-                                                        <div className="text-[10px] text-slate-500 truncate max-w-[120px]">
-                                                            {product.category.name}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="p-3.5 font-mono text-slate-900 font-semibold">
-                                                {typeof product.price === "number"
-                                                    ? `${product.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`
-                                                    : "0,00 ₺"}
-                                            </td>
-                                            <td className="p-3.5">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
-                                                        product.stock > 0
-                                                            ? "bg-slate-100 text-slate-800"
-                                                            : "bg-red-50 text-red-600"
-                                                    }`}
-                                                >
-                                                    {product.stock ?? 0}
-                                                </span>
-                                            </td>
-                                            <td className="p-3.5">
-                                                {isInThisGroup ? (
-                                                    <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
-                                                        Bu Grupta
-                                                    </span>
-                                                ) : hasOtherGroup ? (
-                                                    <span className="text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md truncate max-w-[110px] block" title={`Grup: ${product.groupCode}`}>
-                                                        {product.groupCode}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[10px] text-slate-400">
-                                                        Bağımsız
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td className="p-3.5 text-center">
-                                                <span
-                                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                                        product.active !== false
-                                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                            : "bg-slate-100 text-slate-400 border border-slate-200"
-                                                    }`}
-                                                >
-                                                    {product.active !== false ? "Aktif" : "Pasif"}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-
-                                {viewTab === "all" && displayedSelected.length > 0 && displayedUnselected.length > 0 && (
-                                    <tr className="bg-slate-100/80 border-y border-slate-200">
-                                        <td colSpan={9} className="px-4 py-2 font-bold text-slate-600 text-[11px]">
-                                            <div className="flex items-center justify-between">
-                                                <span className="flex items-center gap-1.5">
-                                                    <Search className="w-3.5 h-3.5 text-slate-500" />
-                                                    {searchQuery ? `ARAMA SONUÇLARI & DİĞER ÜRÜNLER (${displayedUnselected.length} Adet)` : `DİĞER ÜRÜNLER (${displayedUnselected.length} Adet)`}
-                                                </span>
-                                                {displayedUnselected.length > 0 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleSelectAllFiltered}
-                                                        className="text-red-600 hover:text-red-700 font-semibold text-[11px] hover:underline cursor-pointer"
-                                                    >
-                                                        Filtrelenenleri Gruba Ekle
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
+                                        <td className="p-3.5">
+                                            {formatPrice(product)}
+                                        </td>
+                                        <td className="p-3.5">
+                                            <span
+                                                className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold ${
+                                                    product.stock > 0
+                                                        ? "bg-slate-100 text-slate-800"
+                                                        : "bg-red-50 text-red-600"
+                                                }`}
+                                            >
+                                                {product.stock ?? 0}
+                                            </span>
+                                        </td>
+                                        <td className="p-3.5">
+                                            {isInThisGroup ? (
+                                                <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md">
+                                                    Bu Grupta
+                                                </span>
+                                            ) : hasOtherGroup ? (
+                                                <span className="text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md truncate max-w-[100px] block" title={`Grup: ${product.groupCode}`}>
+                                                    {product.groupCode}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-slate-400">
+                                                    Bağımsız
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="p-3.5 text-center">
+                                            <span
+                                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                                    product.active !== false
+                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                        : "bg-slate-100 text-slate-400 border border-slate-200"
+                                                }`}
+                                            >
+                                                {product.active !== false ? "Aktif" : "Pasif"}
+                                            </span>
+                                        </td>
                                     </tr>
-                                )}
+                                );
+                            })}
 
-                                {displayedUnselected.map((product) => {
-                                    const isSelected = false;
+                            {/* SECTION 2: SEARCH RESULTS & BROWSING */}
+                            <tr className="bg-slate-100/90 border-y border-slate-200 sticky top-[41px] z-10">
+                                <td colSpan={9} className="px-4 py-2 font-bold text-slate-700 text-[11px]">
+                                    <div className="flex items-center justify-between">
+                                        <span className="flex items-center gap-1.5">
+                                            <Search className="w-3.5 h-3.5 text-slate-500" />
+                                            {searchQuery
+                                                ? `ARAMA SONUÇLARI (${totalElements} Toplam Ürün Bulundu)`
+                                                : `TÜM DİĞER ÜRÜNLER (${totalElements} Toplam)`}
+                                            {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600 ml-1" />}
+                                        </span>
+
+                                        {unselectedSearchResults.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleSelectAllVisible}
+                                                className="text-red-600 hover:text-red-700 font-semibold text-[11px] hover:underline cursor-pointer flex items-center gap-1"
+                                            >
+                                                <CheckSquare className="w-3 h-3" />
+                                                Sayfadaki Tümünü Seç ({unselectedSearchResults.length})
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            {loading && searchResults.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} className="py-16 text-center text-slate-400">
+                                        <div className="flex flex-col items-center justify-center gap-2">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-red-600" />
+                                            <span className="text-xs font-medium">Ürünler aranıyor...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : unselectedSearchResults.length === 0 ? (
+                                <tr>
+                                    <td colSpan={9} className="py-12 text-center text-slate-400 italic">
+                                        {searchQuery
+                                            ? "Aramanıza uygun başka ürün bulunamadı."
+                                            : "Bu sayfadaki tüm ürünler zaten seçili veya ürün bulunamadı."}
+                                    </td>
+                                </tr>
+                            ) : (
+                                unselectedSearchResults.map((product) => {
+                                    const id = product.productId || product.id;
                                     const img = product.images?.[0]?.url || product.imageUrl;
                                     const isInThisGroup = currentGroupId > 0 && product.groupCode === currentGroupCode;
                                     const hasOtherGroup = product.groupCode && product.groupCode !== currentGroupCode;
 
                                     return (
                                         <tr
-                                            key={`unselected-${product.id}`}
-                                            onClick={() => toggleProduct(product.id)}
+                                            key={`unselected-${id}`}
+                                            onClick={() => toggleProduct(product)}
                                             className="hover:bg-slate-50/90 transition-colors cursor-pointer border-l-4 border-l-transparent"
                                         >
                                             <td className="p-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                                                 <input
                                                     type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => toggleProduct(product.id)}
+                                                    checked={false}
+                                                    onChange={() => toggleProduct(product)}
                                                     className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300 cursor-pointer accent-red-600"
                                                 />
                                             </td>
@@ -666,10 +582,8 @@ export default function ProductSelectModal({
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="p-3.5 font-mono text-slate-900">
-                                                {typeof product.price === "number"
-                                                    ? `${product.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`
-                                                    : "0,00 ₺"}
+                                            <td className="p-3.5">
+                                                {formatPrice(product)}
                                             </td>
                                             <td className="p-3.5">
                                                 <span
@@ -688,7 +602,7 @@ export default function ProductSelectModal({
                                                         Bu Grupta
                                                     </span>
                                                 ) : hasOtherGroup ? (
-                                                    <span className="text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md truncate max-w-[110px] block" title={`Grup: ${product.groupCode}`}>
+                                                    <span className="text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-md truncate max-w-[100px] block" title={`Grup: ${product.groupCode}`}>
                                                         {product.groupCode}
                                                     </span>
                                                 ) : (
@@ -710,25 +624,48 @@ export default function ProductSelectModal({
                                             </td>
                                         </tr>
                                     );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
 
-                {/* Footer Controls */}
+                {/* Footer Controls & Pagination */}
                 <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
-                    <div className="flex items-center gap-3 text-xs">
+                    <div className="flex items-center gap-4 text-xs">
                         <div className="flex items-center gap-2">
                             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span className="font-semibold text-slate-700">
                                 Toplam <b className="text-emerald-700 font-bold">{selectedCount}</b> ürün seçili
                             </span>
                         </div>
-                        <span className="text-slate-300">|</span>
-                        <span className="text-slate-500">
-                            {totalAvailableCount} toplam ürün arasından
-                        </span>
+
+                        {/* Search Results Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center gap-2 pl-3 border-l border-slate-200">
+                                <button
+                                    type="button"
+                                    disabled={page === 0 || loading}
+                                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                                    className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer shadow-2xs"
+                                    title="Önceki Sayfa"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className="font-semibold text-slate-600 text-xs">
+                                    Sayfa {page + 1} / {totalPages}
+                                </span>
+                                <button
+                                    type="button"
+                                    disabled={page >= totalPages - 1 || loading}
+                                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                                    className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer shadow-2xs"
+                                    title="Sonraki Sayfa"
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-3 w-full sm:w-auto">

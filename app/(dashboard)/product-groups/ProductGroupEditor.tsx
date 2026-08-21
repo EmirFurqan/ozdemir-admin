@@ -59,6 +59,8 @@ interface VariantProduct {
     variantLabel: string;
     code: string;
     price: number;
+    currency?: string;
+    currencyId?: number;
     stock: number;
     active?: boolean;
     images?: GroupImage[];
@@ -222,6 +224,8 @@ export default function ProductGroupEditor({
                     variantLabel: p.variantLabel || "",
                     code: p.code || "",
                     price: p.price || 0,
+                    currency: p.currency || (p.currencyId === 1 ? "$" : p.currencyId === 20 ? "€" : "₺"),
+                    currencyId: p.currencyId ?? (p.currency === "$" ? 1 : p.currency === "€" ? 20 : 160),
                     stock: p.stock || 0,
                     active: p.active !== false,
                     images: p.images && p.images.length > 0
@@ -331,6 +335,8 @@ export default function ProductGroupEditor({
                 variantLabel: prod.variantLabel || "",
                 code: prod.code || "",
                 price: prod.price || 0,
+                currency: prod.currency || (prod.currencyId === 1 ? "$" : prod.currencyId === 20 ? "€" : "₺"),
+                currencyId: prod.currencyId ?? (prod.currency === "$" ? 1 : prod.currency === "€" ? 20 : 160),
                 stock: prod.stock || 0,
                 active: prod.active !== false,
                 images: prod.images && prod.images.length > 0
@@ -361,13 +367,15 @@ export default function ProductGroupEditor({
                 return existingVariantMap.get(id)!;
             }
 
-            const prod = selectedProductObjects.find((p) => p.id === id) || selectProducts.find((p) => p.id === id);
+            const prod = selectedProductObjects.find((p) => (p.productId || p.id) === id) || selectProducts.find((p) => (p.productId || p.id) === id);
             return {
                 productId: id,
                 name: prod?.name || "",
                 variantLabel: prod?.variantLabel || "",
                 code: prod?.code || "",
                 price: prod?.price || 0,
+                currency: prod?.currency || (prod?.currencyId === 1 ? "$" : prod?.currencyId === 20 ? "€" : "₺"),
+                currencyId: prod?.currencyId ?? (prod?.currency === "$" ? 1 : prod?.currency === "€" ? 20 : 160),
                 stock: prod?.stock || 0,
                 active: prod?.active !== false,
                 images: prod?.images && prod.images.length > 0
@@ -1282,13 +1290,19 @@ export default function ProductGroupEditor({
                                                          />
                                                      </td>
                                                      <td className="p-3.5">
-                                                         <Input
-                                                             type="number"
-                                                             value={v.price}
-                                                             onChange={(e) => handleUpdateVariant(idx, "price", parseFloat(e.target.value) || 0)}
-                                                             className="bg-white text-xs border-slate-300"
-                                                         />
-                                                     </td>
+                                                          <div className="flex items-center gap-1.5">
+                                                              <Input
+                                                                  type="number"
+                                                                  step="any"
+                                                                  value={v.price}
+                                                                  onChange={(e) => handleUpdateVariant(idx, "price", parseFloat(e.target.value) || 0)}
+                                                                  className="bg-white text-xs border-slate-300 min-w-[70px]"
+                                                              />
+                                                              <span className="font-bold text-xs text-slate-700 bg-slate-100 border border-slate-200/80 px-1.5 py-1.5 rounded-md shrink-0 select-none" title={`Para Birimi: ${v.currency || (v.currencyId === 1 ? 'USD ($)' : v.currencyId === 20 ? 'EUR (€)' : 'TRY (₺)')}`}>
+                                                                  {v.currency || (v.currencyId === 1 ? "$" : v.currencyId === 20 ? "€" : "₺")}
+                                                              </span>
+                                                          </div>
+                                                      </td>
                                                      <td className="p-3.5">
                                                          <Input
                                                              type="number"
@@ -1582,14 +1596,12 @@ export default function ProductGroupEditor({
             <ProductSelectModal
                 isOpen={isSelectModalOpen}
                 onClose={() => setIsSelectModalOpen(false)}
-                allProducts={selectProducts}
-                selectedIds={variants.map((v) => v.productId)}
+                initialSelectedProducts={variants}
                 brands={brands}
                 categories={categories}
                 currentGroupId={groupId}
                 currentGroupCode={groupCode}
                 onApply={handleApplyModalSelection}
-                isLoading={isLoadingSelectProducts}
             />
         </div>
     );

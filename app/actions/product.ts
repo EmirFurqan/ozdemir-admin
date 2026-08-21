@@ -4,13 +4,86 @@ import { fetchAPI } from "@/app/lib/api";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function getProductsForSelect() {
+export async function searchProductsForModal({
+    page = 0,
+    size = 40,
+    search = "",
+    brandId,
+    categoryId,
+}: {
+    page?: number;
+    size?: number;
+    search?: string;
+    brandId?: string | number;
+    categoryId?: string | number;
+} = {}) {
     try {
-        // Fetch a large page to get all products ungrouped.
-        const res = await fetchAPI("/products?page=0&size=5000&grouped=false&active=all");
+        const query = new URLSearchParams({
+            page: page.toString(),
+            size: size.toString(),
+            grouped: "false",
+            active: "all",
+            sort: "name_asc"
+        });
+        if (search && search.trim()) query.append("search", search.trim());
+        if (brandId && brandId !== "all") query.append("brandId", brandId.toString());
+        if (categoryId && categoryId !== "all") query.append("categoryId", categoryId.toString());
+
+        const res = await fetchAPI(`/products?${query.toString()}`);
+        const content = res.content || (Array.isArray(res) ? res : []);
+        const totalPages = res.totalPages ?? 1;
+        const totalElements = res.totalElements ?? content.length;
+
+        const products = content.map((p: any) => ({
+            id: p.id,
+            code: p.code || "",
+            name: p.name || "",
+            variantLabel: p.variantLabel || "",
+            price: p.price ?? 0,
+            stock: p.stock ?? 0,
+            imageUrl: p.imageUrl || (p.images && p.images[0]?.url) || "",
+            images: p.images || [],
+            features: p.features || [],
+            brand: p.brand ? { id: p.brand.id, name: p.brand.name } : null,
+            category: p.category ? { id: p.category.id, name: p.category.name } : null,
+            groupCode: p.groupCode || (p.groups && p.groups[0]?.groupCode) || null,
+            groupName: p.groupName || (p.groups && p.groups[0]?.name) || null,
+            active: p.active !== false
+        }));
+
+        return {
+            content: products,
+            totalPages,
+            totalElements,
+            page,
+            size
+        };
+    } catch (error) {
+        console.error("Failed to search products for modal:", error);
+        return {
+            content: [],
+            totalPages: 1,
+            totalElements: 0,
+            page: 0,
+            size
+        };
+    }
+}
+
+export async function getProductsForSelect(search?: string) {
+    try {
+        const query = new URLSearchParams({
+            page: "0",
+            size: "200",
+            grouped: "false",
+            active: "all",
+            sort: "name_asc"
+        });
+        if (search && search.trim()) query.append("search", search.trim());
+
+        const res = await fetchAPI(`/products?${query.toString()}`);
         const products = res.content || [];
 
-        // Map to object containing images, features and key details
         return products.map((p: any) => ({
             id: p.id,
             code: p.code || "",
@@ -18,7 +91,7 @@ export async function getProductsForSelect() {
             variantLabel: p.variantLabel || "",
             price: p.price ?? 0,
             stock: p.stock ?? 0,
-            imageUrl: p.imageUrl || "",
+            imageUrl: p.imageUrl || (p.images && p.images[0]?.url) || "",
             images: p.images || [],
             features: p.features || [],
             brand: p.brand ? { id: p.brand.id, name: p.brand.name } : null,
