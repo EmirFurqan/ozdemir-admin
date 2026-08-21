@@ -634,6 +634,8 @@ export default function ProductGroupEditor({
                 individualFeatures,
                 products: variants.map((v) => ({
                     ...v,
+                    currencyId: v.currencyId ?? (v.currency === "$" ? 1 : v.currency === "€" ? 20 : 160),
+                    currency: v.currency || (v.currencyId === 1 ? "$" : v.currencyId === 20 ? "€" : "₺"),
                     images: individualImages ? (v.images || []) : (v.images && v.images.length > 0 ? v.images : undefined),
                     features: individualFeatures ? (v.features || []) : (v.features && v.features.length > 0 ? v.features : undefined),
                 })),
@@ -1281,15 +1283,15 @@ export default function ProductGroupEditor({
                                                          />
                                                      </td>
                                                      <td className="p-3.5">
-                                                         <Input
-                                                             type="text"
-                                                             value={v.variantLabel}
-                                                             onChange={(e) => handleUpdateVariant(idx, "variantLabel", e.target.value)}
-                                                             placeholder="Örn: 10 mm"
-                                                             className="bg-white text-xs font-semibold text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
-                                                         />
-                                                     </td>
-                                                     <td className="p-3.5">
+                                                          <Input
+                                                              type="text"
+                                                              value={v.variantLabel}
+                                                              onChange={(e) => handleUpdateVariant(idx, "variantLabel", e.target.value)}
+                                                              placeholder="Örn: 10 mm"
+                                                              className="bg-white text-xs font-semibold text-slate-900 border-slate-300 focus:ring-2 focus:ring-red-500/20"
+                                                          />
+                                                      </td>
+                                                      <td className="p-3.5">
                                                           <div className="flex items-center gap-1.5">
                                                               <Input
                                                                   type="number"
@@ -1298,9 +1300,20 @@ export default function ProductGroupEditor({
                                                                   onChange={(e) => handleUpdateVariant(idx, "price", parseFloat(e.target.value) || 0)}
                                                                   className="bg-white text-xs border-slate-300 min-w-[70px]"
                                                               />
-                                                              <span className="font-bold text-xs text-slate-700 bg-slate-100 border border-slate-200/80 px-1.5 py-1.5 rounded-md shrink-0 select-none" title={`Para Birimi: ${v.currency || (v.currencyId === 1 ? 'USD ($)' : v.currencyId === 20 ? 'EUR (€)' : 'TRY (₺)')}`}>
-                                                                  {v.currency || (v.currencyId === 1 ? "$" : v.currencyId === 20 ? "€" : "₺")}
-                                                              </span>
+                                                              <select
+                                                                  value={v.currencyId ?? (v.currency === "$" ? 1 : v.currency === "€" ? 20 : 160)}
+                                                                  onChange={(e) => {
+                                                                      const curId = parseInt(e.target.value, 10);
+                                                                      const curSym = curId === 1 ? "$" : curId === 20 ? "€" : "₺";
+                                                                      handleUpdateVariant(idx, "currencyId", curId);
+                                                                      handleUpdateVariant(idx, "currency", curSym);
+                                                                  }}
+                                                                  className="h-8 text-xs font-bold bg-slate-100 border border-slate-200 rounded-lg px-1.5 py-0.5 focus:ring-1 focus:ring-red-500 cursor-pointer text-slate-700 select-none shrink-0"
+                                                              >
+                                                                  <option value={160}>₺ TL</option>
+                                                                  <option value={1}>$ USD</option>
+                                                                  <option value={20}>€ EUR</option>
+                                                              </select>
                                                           </div>
                                                       </td>
                                                      <td className="p-3.5">

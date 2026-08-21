@@ -196,27 +196,40 @@ export default function ProductSelectModal({
         onClose();
     };
 
-    // Helper to get currency symbol
-    const getCurrencySymbol = (p: any) => {
-        if (typeof p.currency === "string" && p.currency.trim()) return p.currency;
-        if (p.currencyId === 1 || p.currency === 1) return "$";
-        if (p.currencyId === 20 || p.currency === 20) return "€";
-        if (p.currencyId === 160 || p.currency === 160) return "₺";
-        return "₺";
+    // Helper to get currency info
+    const getCurrencyInfo = (p: any) => {
+        const cur = p.currency;
+        const curId = p.currencyId;
+        if (curId === 1 || cur === "$" || cur === "USD" || cur === 1) {
+            return { symbol: "$", code: "USD", bg: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+        }
+        if (curId === 20 || cur === "€" || cur === "EUR" || cur === "20") {
+            return { symbol: "€", code: "EUR", bg: "bg-blue-50 text-blue-700 border-blue-200" };
+        }
+        return { symbol: "₺", code: "TL", bg: "bg-slate-100 text-slate-700 border-slate-200" };
     };
 
     const formatPrice = (product: any) => {
         const priceVal = typeof product.price === "number" ? product.price : parseFloat(product.price) || 0;
-        const sym = getCurrencySymbol(product);
+        const curInfo = getCurrencyInfo(product);
         return (
-            <div className="font-mono text-slate-900 font-semibold flex items-center gap-1">
+            <div className="font-mono text-slate-900 font-semibold flex items-center gap-1.5">
                 <span>{priceVal.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200/80 px-1 py-0.5 rounded">
-                    {sym}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${curInfo.bg}`}>
+                    {curInfo.symbol} {curInfo.code}
                 </span>
             </div>
         );
     };
+
+    // Filter categories dynamically by selected brand
+    const filteredCategoriesForModal = useMemo(() => {
+        if (!brandFilter || brandFilter === "all") return [];
+        return categories.filter((c: any) => {
+            const bId = c.brandId || c.brand?.id;
+            return bId && bId.toString() === brandFilter.toString();
+        });
+    }, [categories, brandFilter]);
 
     // Selected products array (always rendered at top)
     const selectedList = useMemo(() => Array.from(selectedMap.values()), [selectedMap]);
@@ -276,8 +289,8 @@ export default function ProductSelectModal({
                 {/* Filter & Search Bar Section (Fast & Minimal) */}
                 <div className="p-4 bg-slate-50 border-b border-slate-200/80 space-y-3 shrink-0">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                        {/* Search Input */}
-                        <div className="sm:col-span-6 relative">
+                        {/* Search Input - Expands if category is not shown */}
+                        <div className={brandFilter !== "all" ? "sm:col-span-5 relative" : "sm:col-span-8 relative"}>
                             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <Input
                                 ref={searchInputRef}
@@ -300,11 +313,12 @@ export default function ProductSelectModal({
 
                         {/* Brand Filter */}
                         {brands && brands.length > 0 && (
-                            <div className="sm:col-span-3">
+                            <div className={brandFilter !== "all" ? "sm:col-span-3" : "sm:col-span-4"}>
                                 <select
                                     value={brandFilter}
                                     onChange={(e) => {
                                         setBrandFilter(e.target.value);
+                                        setCategoryFilter("all");
                                         setPage(0);
                                     }}
                                     className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 cursor-pointer"
@@ -319,9 +333,9 @@ export default function ProductSelectModal({
                             </div>
                         )}
 
-                        {/* Category Filter */}
-                        {categories && categories.length > 0 && (
-                            <div className="sm:col-span-3">
+                        {/* Category Filter - ONLY OPENS WHEN A SPECIFIC BRAND IS SELECTED */}
+                        {brandFilter !== "all" && (
+                            <div className="sm:col-span-4 animate-in fade-in slide-in-from-left-2 duration-200">
                                 <select
                                     value={categoryFilter}
                                     onChange={(e) => {
@@ -330,8 +344,8 @@ export default function ProductSelectModal({
                                     }}
                                     className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 cursor-pointer"
                                 >
-                                    <option value="all">Tüm Kategoriler</option>
-                                    {categories.map((c: any) => (
+                                    <option value="all">Tüm Kategoriler ({filteredCategoriesForModal.length})</option>
+                                    {filteredCategoriesForModal.map((c: any) => (
                                         <option key={c.id} value={c.id.toString()}>
                                             {c.name}
                                         </option>
