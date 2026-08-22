@@ -13,11 +13,11 @@ export interface FoundImageResult {
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
 /**
- * Searches the web for product images using DuckDuckGo & Web Image search engines
+ * Searches the web for product images using DuckDuckGo & Bing multi-engine search
  */
 export async function searchImagesAction({
     query,
-    limit = 35
+    limit = 40
 }: {
     query: string;
     limit?: number;
@@ -29,22 +29,47 @@ export async function searchImagesAction({
     const cleanQuery = query.trim();
 
     try {
-        // Attempt DuckDuckGo Image Search
-        const ddgResults = await fetchDuckDuckGoImages(cleanQuery, limit);
-        if (ddgResults && ddgResults.length > 0) {
-            return { success: true, results: ddgResults };
+        // Query both DuckDuckGo and Bing in parallel for maximum reliability and speed
+        const [ddgOutcome, bingOutcome] = await Promise.allSettled([
+            fetchDuckDuckGoImages(cleanQuery, limit),
+            fetchBingImages(cleanQuery, limit)
+        ]);
+
+        const ddgResults = ddgOutcome.status === "fulfilled" ? ddgOutcome.value : [];
+        const bingResults = bingOutcome.status === "fulfilled" ? bingOutcome.value : [];
+
+        // Combine & deduplicate results
+        const seenUrls = new Set<string>();
+        const combinedResults: FoundImageResult[] = [];
+
+        // Interleave results from both engines to get maximum variety
+        const maxLen = Math.max(ddgResults.length, bingResults.length);
+        for (let i = 0; i < maxLen; i++) {
+            if (i < ddgResults.length) {
+                const item = ddgResults[i];
+                if (isValidImageUrl(item.url) && !seenUrls.has(item.url)) {
+                    seenUrls.add(item.url);
+                    combinedResults.push(item);
+                }
+            }
+            if (i < bingResults.length) {
+                const item = bingResults[i];
+                if (isValidImageUrl(item.url) && !seenUrls.has(item.url)) {
+                    seenUrls.add(item.url);
+                    combinedResults.push(item);
+                }
+            }
+            if (combinedResults.length >= limit) break;
         }
 
-        // Fallback: Bing HTML image search
-        const bingResults = await fetchBingImages(cleanQuery, limit);
-        if (bingResults && bingResults.length > 0) {
-            return { success: true, results: bingResults };
+        if (combinedResults.length > 0) {
+            return { success: true, results: combinedResults };
         }
 
         return {
             success: true,
             results: [],
-            message: "Aramanıza uygun görsel bulunamadı. Lütfen sorguyu sadeleştirmeyi veya farklı bir arama terimi girmeyi deneyin."
+            message: "Aramanıza uygun görsel bulunamadı. Lütfen sorguyu sadeleştirmeyi veya önerilen arama çiplerini tıklamayı deneyin."
         };
     } catch (error: any) {
         console.error("searchImagesAction error:", error);
@@ -56,155 +81,182 @@ export async function searchImagesAction({
     }
 }
 
+function isValidImageUrl(url: string): boolean {
+    if (!url || typeof url !== 'string') return false;
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('javascript:')) return false;
+    const lower = url.toLowerCase();
+    if (lower.includes('favicon') || lower.includes('blank.gif') || lower.includes('spacer.gif') || lower.endsWith('.svg')) {
+        return false;
+    }
+    return url.startsWith('http://') || url.startsWith('https://');
+}
+
 /**
  * DuckDuckGo Image Search implementation
  */
 async function fetchDuckDuckGoImages(query: string, limit: number): Promise<FoundImageResult[]> {
-    // 1. Get VQD token from DuckDuckGo
-    const tokenUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iar=images&iax=images&ia=images`;
-    const tokenRes = await fetch(tokenUrl, {
-        headers: {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'tr,en-US;q=0.9,en;q=0.8',
-        },
-        cache: 'no-store'
-    });
-
-    if (!tokenRes.ok) {
-        throw new Error(`DuckDuckGo token request failed: ${tokenRes.status}`);
-    }
-
-    const html = await tokenRes.text();
-    let vqd = "";
-    
-    // Extract vqd
-    const match = html.match(/vqd=['"]?([^&'"]+)['"]?/);
-    if (match && match[1]) {
-        vqd = match[1];
-    } else {
-        const match2 = html.match(/vqd=([0-9-]+)&/);
-        if (match2 && match2[1]) {
-            vqd = match2[1];
-        }
-    }
-
-    if (!vqd) {
-        return [];
-    }
-
-    // 2. Fetch images JSON using VQD
-    const searchApiUrl = `https://duckduckgo.com/i.js?l=tr-tr&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,;&p=1`;
-    const apiRes = await fetch(searchApiUrl, {
-        headers: {
-            'User-Agent': USER_AGENT,
-            'Referer': 'https://duckduckgo.com/',
-            'Accept': 'application/json',
-        },
-        cache: 'no-store'
-    });
-
-    if (!apiRes.ok) {
-        return [];
-    }
-
-    const data = await apiRes.json();
-    if (!data || !data.results || !Array.isArray(data.results)) {
-        return [];
-    }
-
-    const seenUrls = new Set<string>();
-    const results: FoundImageResult[] = [];
-
-    for (const item of data.results) {
-        if (!item.image || typeof item.image !== 'string') continue;
-        if (item.image.startsWith('data:')) continue;
-        if (seenUrls.has(item.image)) continue;
-        seenUrls.add(item.image);
-
-        let domain = "";
-        try {
-            domain = new URL(item.url || item.image).hostname.replace(/^www\./, '');
-        } catch {
-            domain = item.source || "";
-        }
-
-        results.push({
-            url: item.image,
-            thumbUrl: item.thumbnail || item.image,
-            title: item.title || query,
-            width: item.width || 0,
-            height: item.height || 0,
-            domain: domain,
-            sourcePageUrl: item.url || ""
+    try {
+        // 1. Get VQD token from DuckDuckGo
+        const tokenUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iar=images&iax=images&ia=images`;
+        const tokenRes = await fetch(tokenUrl, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Accept-Language': 'tr,en-US;q=0.9,en;q=0.8',
+            },
+            cache: 'no-store'
         });
 
-        if (results.length >= limit) break;
-    }
+        if (!tokenRes.ok) return [];
 
-    return results;
+        const html = await tokenRes.text();
+        let vqd = "";
+        
+        const match = html.match(/vqd=['"]?([^&'"]+)['"]?/);
+        if (match && match[1]) {
+            vqd = match[1];
+        } else {
+            const match2 = html.match(/vqd=([0-9-]+)&/);
+            if (match2 && match2[1]) {
+                vqd = match2[1];
+            }
+        }
+
+        if (!vqd) return [];
+
+        // 2. Fetch images JSON using VQD
+        const searchApiUrl = `https://duckduckgo.com/i.js?l=tr-tr&o=json&q=${encodeURIComponent(query)}&vqd=${vqd}&f=,,,;&p=1`;
+        const apiRes = await fetch(searchApiUrl, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Referer': 'https://duckduckgo.com/',
+                'Accept': 'application/json',
+            },
+            cache: 'no-store'
+        });
+
+        if (!apiRes.ok) return [];
+
+        const data = await apiRes.json();
+        if (!data || !data.results || !Array.isArray(data.results)) return [];
+
+        const results: FoundImageResult[] = [];
+        for (const item of data.results) {
+            if (!item.image || typeof item.image !== 'string') continue;
+
+            let domain = "";
+            try {
+                domain = new URL(item.url || item.image).hostname.replace(/^www\./, '');
+            } catch {
+                domain = item.source || "";
+            }
+
+            results.push({
+                url: item.image,
+                thumbUrl: item.thumbnail || item.image,
+                title: item.title || query,
+                width: item.width || 0,
+                height: item.height || 0,
+                domain: domain,
+                sourcePageUrl: item.url || ""
+            });
+
+            if (results.length >= limit) break;
+        }
+
+        return results;
+    } catch (err) {
+        console.error("DDG fetch error:", err);
+        return [];
+    }
 }
 
 /**
- * Fallback Bing HTML image search parser
+ * Bing Async Image Search implementation
  */
 async function fetchBingImages(query: string, limit: number): Promise<FoundImageResult[]> {
-    const bingUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1`;
-    const res = await fetch(bingUrl, {
-        headers: {
-            'User-Agent': USER_AGENT,
-            'Accept-Language': 'tr,en;q=0.9',
-        },
-        cache: 'no-store'
-    });
+    try {
+        const bingUrl = `https://www.bing.com/images/async?q=${encodeURIComponent(query)}&first=0&count=${limit}&mmasync=1`;
+        const res = await fetch(bingUrl, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Accept': '*/*',
+                'Accept-Language': 'tr,en-US;q=0.9,en;q=0.8',
+            },
+            cache: 'no-store'
+        });
 
-    if (!res.ok) return [];
+        if (!res.ok) return [];
 
-    const html = await res.text();
-    const results: FoundImageResult[] = [];
-    const seenUrls = new Set<string>();
+        const html = await res.text();
+        const results: FoundImageResult[] = [];
+        const seenUrls = new Set<string>();
 
-    // Bing embeds image json in m="{...}" attributes
-    const regex = /m="({&quot;murl&quot;:.*?})"/g;
-    let match;
+        // 1. Detail links parser (mediaurl parameter)
+        const regex = /href="\/images\/search\?view=detailV2&amp;([^"]+)"/g;
+        let match;
+        while ((match = regex.exec(html)) !== null) {
+            try {
+                const queryParams = new URLSearchParams(match[1].replace(/&amp;/g, '&'));
+                const mediaUrl = queryParams.get('mediaurl');
+                const cdnUrl = queryParams.get('cdnurl') || mediaUrl;
+                const width = parseInt(queryParams.get('expw') || '0', 10);
+                const height = parseInt(queryParams.get('exph') || '0', 10);
 
-    while ((match = regex.exec(html)) !== null) {
-        try {
-            const rawJson = match[1].replace(/&quot;/g, '"');
-            const data = JSON.parse(rawJson);
+                if (mediaUrl && !seenUrls.has(mediaUrl)) {
+                    seenUrls.add(mediaUrl);
+                    let domain = "";
+                    try {
+                        domain = new URL(mediaUrl).hostname.replace(/^www\./, '');
+                    } catch {}
 
-            const murl = data.murl;
-            const turl = data.turl || murl;
-            const title = data.t || query;
-            const purl = data.purl || "";
-
-            if (murl && !seenUrls.has(murl) && !murl.startsWith("data:")) {
-                seenUrls.add(murl);
-
-                let domain = "";
-                try {
-                    domain = new URL(purl || murl).hostname.replace(/^www\./, '');
-                } catch {
-                    domain = "";
+                    results.push({
+                        url: mediaUrl,
+                        thumbUrl: cdnUrl || mediaUrl,
+                        width,
+                        height,
+                        domain,
+                        title: query
+                    });
                 }
-
-                results.push({
-                    url: murl,
-                    thumbUrl: turl,
-                    title: title,
-                    width: data.mw || 0,
-                    height: data.mh || 0,
-                    domain: domain,
-                    sourcePageUrl: purl
-                });
-            }
-
+            } catch {}
             if (results.length >= limit) break;
-        } catch {
-            // Ignore malformed item
         }
-    }
 
-    return results;
+        // 2. m="..." attributes parser
+        if (results.length < limit) {
+            const mRegex = /m="({[^"]+})"/g;
+            let mMatch;
+            while ((mMatch = mRegex.exec(html)) !== null) {
+                try {
+                    const raw = mMatch[1].replace(/&quot;/g, '"');
+                    const data = JSON.parse(raw);
+                    const mediaUrl = data.murl || data.turl;
+                    if (mediaUrl && !seenUrls.has(mediaUrl)) {
+                        seenUrls.add(mediaUrl);
+                        let domain = "";
+                        try {
+                            domain = new URL(data.purl || mediaUrl).hostname.replace(/^www\./, '');
+                        } catch {}
+                        results.push({
+                            url: mediaUrl,
+                            thumbUrl: data.turl || mediaUrl,
+                            title: data.t || query,
+                            width: data.mw || 0,
+                            height: data.mh || 0,
+                            domain,
+                            sourcePageUrl: data.purl || ""
+                        });
+                    }
+                } catch {}
+                if (results.length >= limit) break;
+            }
+        }
+
+        return results;
+    } catch (err) {
+        console.error("Bing fetch error:", err);
+        return [];
+    }
 }
 
 /**
@@ -274,20 +326,7 @@ export async function scrapePageImagesAction({
 
         const addImage = (rawUrl: string, title?: string, width?: number, height?: number) => {
             const absoluteUrl = resolveUrl(rawUrl);
-            if (!absoluteUrl) return;
-
-            // Filter out common unwanted icons/trackers/spacers
-            const lower = absoluteUrl.toLowerCase();
-            if (
-                lower.includes('favicon') ||
-                lower.includes('placeholder') ||
-                lower.includes('blank.gif') ||
-                lower.includes('spacer.gif') ||
-                lower.includes('pixel') ||
-                lower.endsWith('.svg')
-            ) {
-                return;
-            }
+            if (!absoluteUrl || !isValidImageUrl(absoluteUrl)) return;
 
             if (!seenUrls.has(absoluteUrl)) {
                 seenUrls.add(absoluteUrl);
@@ -303,7 +342,7 @@ export async function scrapePageImagesAction({
             }
         };
 
-        // 2. OpenGraph & Twitter Meta tags (usually the highest quality main product images)
+        // 2. OpenGraph & Twitter Meta tags
         const ogImageMatches = html.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image|og:image:secure_url|twitter:image)["'][^>]+content=["']([^"']+)["']/gi);
         for (const m of ogImageMatches) {
             if (m[1]) addImage(m[1], pageTitle + " (Kapak)");
@@ -329,18 +368,14 @@ export async function scrapePageImagesAction({
                     }
                 };
                 parseSchema(schema);
-            } catch {
-                // Ignore parse error in individual schema block
-            }
+            } catch {}
         }
 
-        // 4. Extract <img> tags with high-res attributes (data-zoom, data-large, data-highres, srcset, src)
+        // 4. Extract <img> tags with high-res attributes
         const imgTagRegex = /<img\b([^>]*)>/gi;
         let imgMatch;
         while ((imgMatch = imgTagRegex.exec(html)) !== null) {
             const attrs = imgMatch[1];
-
-            // Extract high-res candidate attributes first
             const highResAttrMatch = attrs.match(/(?:data-zoom-image|data-large|data-zoom|data-highres|data-original|data-src)=["']([^"']+)["']/i);
             const srcMatch = attrs.match(/\bsrc=["']([^"']+)["']/i);
             const altMatch = attrs.match(/\balt=["']([^"']+)["']/i);
@@ -352,11 +387,9 @@ export async function scrapePageImagesAction({
                 addImage(srcMatch[1], altText || pageTitle);
             }
 
-            // Extract from srcset
             const srcsetMatch = attrs.match(/\bsrcset=["']([^"']+)["']/i);
             if (srcsetMatch && srcsetMatch[1]) {
                 const parts = srcsetMatch[1].split(',');
-                // Take the largest one (usually the last or with highest 'w' / 'x')
                 for (const part of parts) {
                     const cleanPart = part.trim().split(/\s+/)[0];
                     if (cleanPart) addImage(cleanPart, altText || pageTitle);

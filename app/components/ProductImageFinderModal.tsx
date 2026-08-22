@@ -68,14 +68,24 @@ export default function ProductImageFinderModal({
 
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Generate intelligent search chips based on product details
+    // Generate intelligent, non-redundant search chips based on product details
     const searchChips = useMemo(() => {
         const chips: { label: string; query: string; isDefault?: boolean }[] = [];
-        const cleanBrand = brandName?.trim() || "";
-        const cleanCode = productCode?.trim() || "";
-        const cleanName = productName?.trim() || "";
+        const cleanBrand = (brandName || "").trim();
+        const cleanCode = (productCode || "").trim();
+        let cleanName = (productName || "").trim();
 
-        // 1. Recommended: Brand + Code
+        // Strip repeated code from name if present
+        if (cleanCode && cleanName.toLowerCase().includes(cleanCode.toLowerCase())) {
+            cleanName = cleanName.replace(new RegExp(cleanCode, "gi"), "").replace(/^[\s\-–—:]+/, "").replace(/[\s\-–—:]+$/, "").trim();
+        }
+
+        // Strip repeated brand from name if present
+        if (cleanBrand && cleanName.toLowerCase().includes(cleanBrand.toLowerCase())) {
+            cleanName = cleanName.replace(new RegExp(cleanBrand, "gi"), "").replace(/^[\s\-–—:]+/, "").replace(/[\s\-–—:]+$/, "").trim();
+        }
+
+        // 1. Recommended Best Accuracy: Brand + Code (e.g. "Bosch 0601394000")
         if (cleanBrand && cleanCode) {
             chips.push({
                 label: `${cleanBrand} ${cleanCode}`,
@@ -84,22 +94,7 @@ export default function ProductImageFinderModal({
             });
         }
 
-        // 2. Brand + Code + Name (Full)
-        if (cleanBrand && cleanCode && cleanName && cleanName !== cleanCode) {
-            chips.push({
-                label: `${cleanBrand} ${cleanCode} ${cleanName}`,
-                query: `${cleanBrand} ${cleanCode} ${cleanName}`,
-                isDefault: !chips.length,
-            });
-        } else if (cleanBrand && cleanName) {
-            chips.push({
-                label: `${cleanBrand} ${cleanName}`,
-                query: `${cleanBrand} ${cleanName}`,
-                isDefault: !chips.length,
-            });
-        }
-
-        // 3. Just Code
+        // 2. Just Product Code (e.g. "0601394000")
         if (cleanCode) {
             chips.push({
                 label: cleanCode,
@@ -108,11 +103,26 @@ export default function ProductImageFinderModal({
             });
         }
 
-        // 4. Name only if long enough
-        if (cleanName && cleanName !== cleanCode && cleanName !== cleanBrand) {
+        // 3. Brand + Clean Name (e.g. "Bosch GWS 750-115")
+        if (cleanBrand && cleanName) {
+            chips.push({
+                label: `${cleanBrand} ${cleanName}`,
+                query: `${cleanBrand} ${cleanName}`,
+                isDefault: !chips.length,
+            });
+        }
+
+        // 4. Full: Brand + Code + Clean Name
+        if (cleanBrand && cleanCode && cleanName) {
+            chips.push({
+                label: `${cleanBrand} ${cleanCode} ${cleanName}`,
+                query: `${cleanBrand} ${cleanCode} ${cleanName}`,
+            });
+        } else if (cleanName) {
             chips.push({
                 label: cleanName,
                 query: cleanName,
+                isDefault: !chips.length,
             });
         }
 
@@ -126,8 +136,8 @@ export default function ProductImageFinderModal({
             setSelectedUrls(new Set());
             setPreviewImage(null);
 
-            // Set default best query
-            const defaultQuery = searchChips[0]?.query || `${brandName} ${productCode} ${productName}`.trim();
+            // Determine best initial query
+            const defaultQuery = searchChips[0]?.query || `${brandName || ""} ${productCode || ""} ${productName || ""}`.trim();
             setSearchQuery(defaultQuery);
 
             // Auto-trigger search if query exists
@@ -164,11 +174,11 @@ export default function ProductImageFinderModal({
         setLoading(true);
         setErrorMessage(null);
         try {
-            const res = await searchImagesAction({ query: q.trim(), limit: 40 });
+            const res = await searchImagesAction({ query: q.trim(), limit: 45 });
             if (res.success) {
                 setSearchResults(res.results);
                 if (res.results.length === 0) {
-                    setErrorMessage("Aramanıza uygun görsel bulunamadı. Lütfen filtre çiplerini deneyin veya arama terimini değiştirin.");
+                    setErrorMessage("Aramanıza uygun görsel bulunamadı. Lütfen önerilen diğer filtre butonlarına tıklamayı veya arama kutusunu sadeleştirmeyi deneyin.");
                 }
             } else {
                 setSearchResults([]);
@@ -177,7 +187,7 @@ export default function ProductImageFinderModal({
         } catch (err: any) {
             console.error("Search error:", err);
             setSearchResults([]);
-            setErrorMessage("Arama gerçekleştirilemedi. Lütfen bağlantınızı kontrol edin.");
+            setErrorMessage("Arama gerçekleştirilemedi. Lütfen internet bağlantınızı kontrol edin.");
         } finally {
             setLoading(false);
         }
@@ -408,7 +418,7 @@ export default function ProductImageFinderModal({
                                     <Input
                                         ref={searchInputRef}
                                         type="text"
-                                        placeholder="Marka, model veya ürün adı ile görsel arayın..."
+                                        placeholder="Marka, model veya ürün kodu ile görsel arayın..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-9 pr-8 bg-slate-50 border-slate-200 text-xs h-10 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20"
@@ -550,9 +560,26 @@ export default function ProductImageFinderModal({
 
                 {/* Error Banner */}
                 {errorMessage && (
-                    <div className="mx-6 my-2 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{errorMessage}</span>
+                    <div className="mx-6 my-2 p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>{errorMessage}</span>
+                        </div>
+                        {searchChips.length > 0 && activeTab === "search" && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const fallback = searchChips[1]?.query || searchChips[0]?.query;
+                                    if (fallback) {
+                                        setSearchQuery(fallback);
+                                        handlePerformSearch(fallback);
+                                    }
+                                }}
+                                className="text-xs font-bold text-amber-900 underline hover:text-red-700 cursor-pointer shrink-0"
+                            >
+                                Önerilen ile Tekrar Dene ({searchChips[1]?.label || searchChips[0]?.label})
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -574,7 +601,7 @@ export default function ProductImageFinderModal({
                                 Henüz listelenecek görsel bulunamadı.
                             </p>
                             <p className="text-[11px] text-slate-400 text-center max-w-sm">
-                                Yukarıdaki arama çubuğundan farklı bir terim aratabilir veya önerilen butonlara tıklayabilirsiniz.
+                                Yukarıdaki arama kutusuna ürün kodu veya model yazıp &quot;Görsel Ara&quot; butonuna basın.
                             </p>
                         </div>
                     ) : (
@@ -631,10 +658,15 @@ export default function ProductImageFinderModal({
                                                 <img
                                                     src={item.thumbUrl || item.url}
                                                     alt={item.title || "Görsel"}
+                                                    referrerPolicy="no-referrer"
                                                     className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                                                     loading="lazy"
                                                     onError={(e) => {
-                                                        (e.target as HTMLElement).style.display = "none";
+                                                        const target = e.currentTarget;
+                                                        // If thumbnail failed, try original full URL
+                                                        if (target.src !== item.url) {
+                                                            target.src = item.url;
+                                                        }
                                                     }}
                                                 />
 
@@ -781,6 +813,7 @@ export default function ProductImageFinderModal({
                             <img
                                 src={previewImage.url}
                                 alt={previewImage.title}
+                                referrerPolicy="no-referrer"
                                 className="max-h-[70vh] w-auto object-contain rounded shadow"
                             />
                         </div>
