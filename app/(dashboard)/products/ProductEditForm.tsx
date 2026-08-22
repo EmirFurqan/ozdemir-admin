@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveProduct } from "@/app/actions/product";
 import { Product } from "@/app/services/productService";
-import { Plus, Trash2, Upload, Loader2, X, Star, FileText, Clipboard, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Upload, Loader2, X, Star, FileText, Clipboard, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import Image from "next/image";
 import dynamic from 'next/dynamic';
 import { Combobox } from "@/components/ui/combobox";
 import 'react-quill-new/dist/quill.snow.css';
+import ProductImageFinderModal from "@/app/components/ProductImageFinderModal";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false }) as any;
 
@@ -172,6 +173,7 @@ export default function ProductEditForm({ product, brands, categories, productGr
         })) || []
     );
     const [isUploading, setIsUploading] = useState(false);
+    const [isImageFinderOpen, setIsImageFinderOpen] = useState(false);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -353,6 +355,7 @@ export default function ProductEditForm({ product, brands, categories, productGr
     };
 
     return (
+        <>
         <form action={formAction} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <input type="hidden" name="id" value={product?.id} />
             {/* Pass Group ID directly to avoid re-creation logic */}
@@ -575,7 +578,18 @@ export default function ProductEditForm({ product, brands, categories, productGr
 
                 {/* Media Card */}
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-900 border-b pb-2">Ürün Görselleri</h3>
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <h3 className="text-lg font-semibold text-slate-900">Ürün Görselleri</h3>
+                        <Button
+                            type="button"
+                            onClick={() => setIsImageFinderOpen(true)}
+                            variant="outline"
+                            className="text-xs h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            Web&apos;den Resim Bul
+                        </Button>
+                    </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         {images.map((img, index) => (
@@ -710,8 +724,8 @@ export default function ProductEditForm({ product, brands, categories, productGr
                     )}
 
                     <div className="flex flex-col gap-3">
-                        <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white py-6 text-lg shadow-md transition-all hover:scale-[1.02]">
-                            Güncelle
+                        <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-6 rounded-xl shadow-lg hover:shadow-xl transition-all">
+                            Değişiklikleri Kaydet
                         </Button>
                         <Button type="button" variant="outline" onClick={() => window.history.back()} className="w-full">
                             Vazgeç
@@ -721,5 +735,19 @@ export default function ProductEditForm({ product, brands, categories, productGr
 
             </div>
         </form>
+
+        <ProductImageFinderModal
+            isOpen={isImageFinderOpen}
+            onClose={() => setIsImageFinderOpen(false)}
+            productName={product?.name}
+            productCode={product?.code}
+            brandName={product?.brand?.name || brands.find(b => b.id.toString() === selectedBrand)?.name}
+            categoryName={product?.category?.name || categories.find(c => c.id.toString() === selectedCategory)?.name}
+            existingImageCount={images.length}
+            onImagesSelected={(newImgs) => {
+                setImages(prev => [...prev, ...newImgs]);
+            }}
+        />
+        </>
     );
 }

@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
 import ProductSelectModal from "./ProductSelectModal";
+import ProductImageFinderModal from "@/app/components/ProductImageFinderModal";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false }) as any;
 
@@ -97,11 +98,13 @@ export default function ProductGroupEditor({
     const [images, setImages] = useState<GroupImage[]>([]);
     const [features, setFeatures] = useState<GroupFeature[]>([]);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isSharedImageFinderOpen, setIsSharedImageFinderOpen] = useState(false);
 
     // Individual images mode
     const [individualImages, setIndividualImages] = useState(false);
     const [expandedVariantImages, setExpandedVariantImages] = useState<number | null>(null);
     const [isUploadingVariantImage, setIsUploadingVariantImage] = useState<number | null>(null);
+    const [variantImageFinderTarget, setVariantImageFinderTarget] = useState<{ index: number; product: VariantProduct } | null>(null);
 
     // Individual features mode
     const [individualFeatures, setIndividualFeatures] = useState(false);
@@ -919,7 +922,7 @@ export default function ProductGroupEditor({
                             </div>
                         )}
 
-                        {/* File Upload + Text URL Input */}
+                        {/* File Upload + Text URL Input + Web Finder */}
                         <div className="flex flex-col sm:flex-row gap-2">
                             <label className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs px-4 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1.5 transition-all">
                                 {isUploadingImage ? (
@@ -942,6 +945,16 @@ export default function ProductGroupEditor({
                                     disabled={isUploadingImage}
                                 />
                             </label>
+
+                            <Button
+                                type="button"
+                                onClick={() => setIsSharedImageFinderOpen(true)}
+                                variant="outline"
+                                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-xs px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Web&apos;den Resim Bul
+                            </Button>
 
                             <div className="flex flex-1 gap-1">
                                 <Input
@@ -1388,6 +1401,14 @@ export default function ProductGroupEditor({
                                             )}
                                             <td className="p-3.5 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setVariantImageFinderTarget({ index: idx, product: v })}
+                                                        className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg transition-colors cursor-pointer"
+                                                        title="Bu Ürün İçin Web'den Resim Bul"
+                                                    >
+                                                        <Sparkles className="w-4 h-4" />
+                                                    </button>
                                                     <Link href={`/products/${v.productId}`} target="_blank">
                                                         <button
                                                             type="button"
@@ -1427,8 +1448,8 @@ export default function ProductGroupEditor({
                                                             </button>
                                                         </div>
 
-                                                        {/* Upload Button */}
-                                                        <div className="flex gap-2">
+                                                        {/* Upload & Finder Buttons */}
+                                                        <div className="flex items-center gap-2">
                                                             <label className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-all">
                                                                 {isUploadingVariantImage === idx ? (
                                                                     <>
@@ -1438,7 +1459,7 @@ export default function ProductGroupEditor({
                                                                 ) : (
                                                                     <>
                                                                         <Upload className="w-3.5 h-3.5" />
-                                                                        Resim Ekle
+                                                                        Dosya Yükle
                                                                     </>
                                                                 )}
                                                                 <input
@@ -1450,6 +1471,16 @@ export default function ProductGroupEditor({
                                                                     disabled={isUploadingVariantImage === idx}
                                                                 />
                                                             </label>
+
+                                                            <Button
+                                                                type="button"
+                                                                onClick={() => setVariantImageFinderTarget({ index: idx, product: v })}
+                                                                variant="outline"
+                                                                className="border-amber-300 text-amber-800 bg-white hover:bg-amber-100 text-xs px-3 py-2 rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                                                            >
+                                                                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                                                                Web&apos;den Resim Bul
+                                                            </Button>
                                                         </div>
 
                                                         {/* Image Grid */}
@@ -1616,6 +1647,46 @@ export default function ProductGroupEditor({
                 currentGroupCode={groupCode}
                 onApply={handleApplyModalSelection}
             />
+
+            {/* Shared Images Finder Modal */}
+            <ProductImageFinderModal
+                isOpen={isSharedImageFinderOpen}
+                onClose={() => setIsSharedImageFinderOpen(false)}
+                productName={groupName || (variants[0]?.name)}
+                productCode={groupCode || (variants[0]?.code)}
+                brandName={brands.find((b: any) => b.id?.toString() === brandId)?.name}
+                categoryName={categories.find((c: any) => c.id?.toString() === categoryId)?.name}
+                existingImageCount={images.length}
+                onImagesSelected={(newImgs) => {
+                    setImages((prev) => [...prev, ...newImgs]);
+                }}
+            />
+
+            {/* Variant Individual Image Finder Modal */}
+            {variantImageFinderTarget && (
+                <ProductImageFinderModal
+                    isOpen={true}
+                    onClose={() => setVariantImageFinderTarget(null)}
+                    productName={variantImageFinderTarget.product.name}
+                    productCode={variantImageFinderTarget.product.code}
+                    brandName={brands.find((b: any) => b.id?.toString() === brandId)?.name}
+                    categoryName={categories.find((c: any) => c.id?.toString() === categoryId)?.name}
+                    existingImageCount={(variantImageFinderTarget.product.images || []).length}
+                    onImagesSelected={(newImgs) => {
+                        const targetIdx = variantImageFinderTarget.index;
+                        setVariants((prev) => {
+                            const updated = [...prev];
+                            const existing = updated[targetIdx].images || [];
+                            updated[targetIdx] = {
+                                ...updated[targetIdx],
+                                images: [...existing, ...newImgs],
+                            };
+                            return updated;
+                        });
+                        setVariantImageFinderTarget(null);
+                    }}
+                />
+            )}
         </div>
     );
 }
