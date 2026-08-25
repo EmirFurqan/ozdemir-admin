@@ -53,7 +53,6 @@ export default function DealersPage() {
         open: boolean;
         dealerName: string;
         dealerCode: string;
-        username: string;
         email: string;
         password: string;
         message: string;
@@ -62,15 +61,14 @@ export default function DealersPage() {
     const [copied, setCopied] = useState(false);
 
     // Form state for creating a user manually
-    const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
     const [userForm, setUserForm] = useState({
-        username: "",
         email: "",
         password: "",
         fullName: "",
         phone: "",
         role: "CUSTOMER_OWNER"
     });
+    const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
     const [formSubmitting, setFormSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
 
@@ -112,7 +110,6 @@ export default function DealersPage() {
                     open: true,
                     dealerName: updatedDealer.definition,
                     dealerCode: updatedDealer.code,
-                    username: res.generatedUsername || "",
                     email: res.generatedEmail || "",
                     password: res.generatedPassword,
                     message: res.message
@@ -127,7 +124,7 @@ export default function DealersPage() {
 
     const handleCopyCredentials = () => {
         if (!generatedModal) return;
-        const text = `Sayın Bayimiz (${generatedModal.dealerName}),\n\nÖzdemir Makina B2B Bayi Portalı erişiminiz açılmıştır.\n\nGiriş Bilgileriniz:\nKullanıcı Adı: ${generatedModal.username}\nE-posta: ${generatedModal.email}\nŞifre: ${generatedModal.password}\n\nPortal Adresi: https://bayi.ozdemirmakina.com`;
+        const text = `Sayın Bayimiz (${generatedModal.dealerName}),\n\nÖzdemir Makina B2B Bayi Portalı erişiminiz açılmıştır.\n\nGiriş Bilgileriniz:\nE-posta: ${generatedModal.email}\nŞifre: ${generatedModal.password}\n\nPortal Giriş Adresi: https://bayi.ozdemirmakina.com`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -154,12 +151,14 @@ export default function DealersPage() {
         setFormError(null);
 
         try {
-            const created = await createDealerUserAction(selectedDealer.id, userForm);
+            const created = await createDealerUserAction(selectedDealer.id, {
+                ...userForm,
+                username: userForm.email // Username otomatik email olarak atanır
+            });
             setDealerUsers(prev => [...prev, created]);
             setDealers(prev => prev.map(d => d.id === selectedDealer.id ? { ...d, userCount: (d.userCount || 0) + 1 } : d));
             setIsCreateUserOpen(false);
             setUserForm({
-                username: "",
                 email: "",
                 password: "",
                 fullName: "",
@@ -365,7 +364,7 @@ export default function DealersPage() {
                             </div>
                             <button
                                 onClick={() => setGeneratedModal(null)}
-                                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -376,7 +375,7 @@ export default function DealersPage() {
                             <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
                                 <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                                 <div>
-                                    Bayinin sisteme erişebilmesi için ana yetkili kullanıcı hesabı otomatik olarak tanımlandı. Bu bilgileri kopyalayıp bayinizle paylaşabilirsiniz:
+                                    Bayinin sisteme erişebilmesi için ana yetkili kullanıcı hesabı otomatik tanımlandı. Bu bilgileri kopyalayıp bayinizle paylaşabilirsiniz:
                                 </div>
                             </div>
 
@@ -387,13 +386,8 @@ export default function DealersPage() {
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-200">
-                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Kullanıcı Adı:</span>
-                                    <div className="font-mono font-bold text-blue-600 text-sm mt-0.5">{generatedModal.username}</div>
-                                </div>
-
-                                <div className="pt-2 border-t border-slate-200">
-                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">E-posta:</span>
-                                    <div className="font-mono text-slate-700 mt-0.5">{generatedModal.email}</div>
+                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Giriş E-postası:</span>
+                                    <div className="font-mono font-bold text-blue-600 text-sm mt-0.5">{generatedModal.email}</div>
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-200">
@@ -405,7 +399,7 @@ export default function DealersPage() {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="text-slate-400 hover:text-slate-600 p-1"
+                                            className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                                             title={showPassword ? "Şifreyi Gizle" : "Şifreyi Göster"}
                                         >
                                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -432,7 +426,7 @@ export default function DealersPage() {
                                     ) : (
                                         <>
                                             <Copy className="w-4 h-4 text-white" />
-                                            Tüm Giriş Bilgilerini Kopyala
+                                            Giriş Bilgilerini Kopyala
                                         </>
                                     )}
                                 </button>
@@ -495,38 +489,14 @@ export default function DealersPage() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[11px] font-semibold text-slate-700">Kullanıcı Adı *</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                placeholder="Örn: bayi_yetkili"
-                                                value={userForm.username}
-                                                onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
-                                                className="w-full mt-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[11px] font-semibold text-slate-700">E-posta Adresi *</label>
+                                            <label className="text-[11px] font-semibold text-slate-700">E-posta Adresi (Giriş Adresi) *</label>
                                             <input
                                                 type="email"
                                                 required
                                                 placeholder="yetkili@firma.com"
                                                 value={userForm.email}
                                                 onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                                                className="w-full mt-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[11px] font-semibold text-slate-700">Ad Soyad</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Ad Soyad"
-                                                value={userForm.fullName}
-                                                onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
-                                                className="w-full mt-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                className="w-full mt-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                             />
                                         </div>
                                         <div>
@@ -537,7 +507,30 @@ export default function DealersPage() {
                                                 placeholder="••••••••"
                                                 value={userForm.password}
                                                 onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                                                className="w-full mt-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                                className="w-full mt-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-slate-700">Yetkili Adı Soyadı</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Örn: Ahmet Yılmaz"
+                                                value={userForm.fullName}
+                                                onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
+                                                className="w-full mt-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-slate-700">Telefon Numarası</label>
+                                            <input
+                                                type="text"
+                                                placeholder="05XX XXX XX XX"
+                                                value={userForm.phone}
+                                                onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                                                className="w-full mt-1 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                                             />
                                         </div>
                                     </div>
@@ -546,14 +539,14 @@ export default function DealersPage() {
                                         <button
                                             type="button"
                                             onClick={() => setIsCreateUserOpen(false)}
-                                            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50"
+                                            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 cursor-pointer"
                                         >
                                             İptal
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={formSubmitting}
-                                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer"
                                         >
                                             {formSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                             Kullanıcıyı Kaydet
@@ -582,16 +575,15 @@ export default function DealersPage() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold text-slate-900 text-sm">
-                                                        {user.fullName || user.username}
+                                                        {user.fullName || user.email}
                                                     </span>
                                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                                        {user.role}
+                                                        {user.role === 'CUSTOMER_OWNER' ? 'BAYİ SAHİBİ' : 'PERSONEL'}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-3 font-mono">
-                                                    <span>Kullanıcı: {user.username}</span>
-                                                    <span>•</span>
-                                                    <span>E-posta: {user.email}</span>
+                                                <div className="text-xs text-slate-600 flex items-center gap-3 font-mono">
+                                                    <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                                    <span>{user.email}</span>
                                                 </div>
                                             </div>
                                             <button
