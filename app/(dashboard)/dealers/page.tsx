@@ -18,7 +18,13 @@ import {
     Loader2,
     ChevronLeft,
     ChevronRight,
-    RefreshCw
+    RefreshCw,
+    Copy,
+    Check,
+    Eye,
+    EyeOff,
+    X,
+    Lock
 } from "lucide-react";
 import {
     fetchDealersAction,
@@ -42,7 +48,20 @@ export default function DealersPage() {
     const [dealerUsers, setDealerUsers] = useState<any[]>([]);
     const [loadingUsers, setLoadingUsers] = useState(false);
 
-    // Form state for creating a user
+    // Newly generated credentials modal state
+    const [generatedModal, setGeneratedModal] = useState<{
+        open: boolean;
+        dealerName: string;
+        dealerCode: string;
+        username: string;
+        email: string;
+        password: string;
+        message: string;
+    } | null>(null);
+    const [showPassword, setShowPassword] = useState(true);
+    const [copied, setCopied] = useState(false);
+
+    // Form state for creating a user manually
     const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
     const [userForm, setUserForm] = useState({
         username: "",
@@ -78,15 +97,40 @@ export default function DealersPage() {
         return () => clearTimeout(timeout);
     }, [page, search, activeOnly]);
 
-    const handleToggleStatus = async (dealerId: number, currentStatus: boolean) => {
+    const handleToggleStatus = async (dealer: any) => {
         try {
-            await toggleDealerStatusAction(dealerId);
+            const res = await toggleDealerStatusAction(dealer.id);
+            const updatedDealer = res.dealer;
+
             setDealers(prev =>
-                prev.map(d => (d.id === dealerId ? { ...d, bayiActive: !currentStatus } : d))
+                prev.map(d => (d.id === dealer.id ? { ...d, bayiActive: updatedDealer.bayiActive, userCount: updatedDealer.userCount } : d))
             );
+
+            // Eğer otomatik kullanıcı oluşturulduysa şifre modalını aç
+            if (res.userCreated && res.generatedPassword) {
+                setGeneratedModal({
+                    open: true,
+                    dealerName: updatedDealer.definition,
+                    dealerCode: updatedDealer.code,
+                    username: res.generatedUsername || "",
+                    email: res.generatedEmail || "",
+                    password: res.generatedPassword,
+                    message: res.message
+                });
+                setShowPassword(true);
+                setCopied(false);
+            }
         } catch (e) {
             console.error("Durum değiştirilemedi:", e);
         }
+    };
+
+    const handleCopyCredentials = () => {
+        if (!generatedModal) return;
+        const text = `Sayın Bayimiz (${generatedModal.dealerName}),\n\nÖzdemir Makina B2B Bayi Portalı erişiminiz açılmıştır.\n\nGiriş Bilgileriniz:\nKullanıcı Adı: ${generatedModal.username}\nE-posta: ${generatedModal.email}\nŞifre: ${generatedModal.password}\n\nPortal Adresi: https://bayi.ozdemirmakina.com`;
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const handleOpenUserModal = async (dealer: any) => {
@@ -112,6 +156,7 @@ export default function DealersPage() {
         try {
             const created = await createDealerUserAction(selectedDealer.id, userForm);
             setDealerUsers(prev => [...prev, created]);
+            setDealers(prev => prev.map(d => d.id === selectedDealer.id ? { ...d, userCount: (d.userCount || 0) + 1 } : d));
             setIsCreateUserOpen(false);
             setUserForm({
                 username: "",
@@ -133,13 +178,14 @@ export default function DealersPage() {
         try {
             await deleteDealerUserAction(selectedDealer.id, userId);
             setDealerUsers(prev => prev.filter(u => u.id !== userId));
+            setDealers(prev => prev.map(d => d.id === selectedDealer.id ? { ...d, userCount: Math.max(0, (d.userCount || 1) - 1) } : d));
         } catch (e) {
             console.error("Kullanıcı silinemedi:", e);
         }
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 font-sans">
             {/* Header */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div>
@@ -148,7 +194,7 @@ export default function DealersPage() {
                         Bayi & Cari Hesap Yönetimi
                     </h1>
                     <p className="text-slate-500 mt-1">
-                        Logo ERP cari kartlarını görüntüleyebilir, bayilik erişimini açıp kapatabilir ve bayilere ait kullanıcıları yönetebilirsiniz.
+                        Logo ERP cari kartlarını görüntüleyebilir, tek tıkla bayilik portalını açıp kullanıcı şifresi üretebilirsiniz.
                     </p>
                 </div>
                 <button
@@ -180,7 +226,7 @@ export default function DealersPage() {
                             onChange={(e) => { setActiveOnly(e.target.checked); setPage(0); }}
                             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                         />
-                        <span>Sadece Açık Bayiler</span>
+                        <span className="font-medium">Sadece Açık Bayiler</span>
                     </label>
 
                     <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
@@ -199,6 +245,7 @@ export default function DealersPage() {
                                 <th className="px-6 py-4 font-semibold">Cari Kodu</th>
                                 <th className="px-6 py-4 font-semibold">Cari Ünvanı</th>
                                 <th className="px-6 py-4 font-semibold">Şehir / İlçe</th>
+                                <th className="px-6 py-4 font-semibold text-center">Kullanıcı</th>
                                 <th className="px-6 py-4 font-semibold text-center">Bayi Erişimi</th>
                                 <th className="px-6 py-4 font-semibold text-right">İşlemler</th>
                             </tr>
@@ -206,7 +253,7 @@ export default function DealersPage() {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex items-center justify-center gap-2">
                                             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                                             Cari hesaplar yükleniyor...
@@ -215,7 +262,7 @@ export default function DealersPage() {
                                 </tr>
                             ) : dealers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                         Arama kriterine uygun cari hesap bulunamadı.
                                     </td>
                                 </tr>
@@ -235,12 +282,22 @@ export default function DealersPage() {
                                             {dealer.city || dealer.district ? `${dealer.city || ''} / ${dealer.district || ''}` : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-center">
+                                            {dealer.userCount > 0 ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                                    <Users className="w-3 h-3" /> {dealer.userCount}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 text-xs">Yok</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
                                             <button
                                                 type="button"
-                                                onClick={() => handleToggleStatus(dealer.id, dealer.bayiActive)}
+                                                onClick={() => handleToggleStatus(dealer)}
                                                 className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                                                     dealer.bayiActive ? "bg-emerald-500" : "bg-slate-300"
                                                 }`}
+                                                title={dealer.bayiActive ? "Bayilik Açık (Kapatmak için tıkla)" : "Bayilik Kapalı (Açmak için tıkla)"}
                                             >
                                                 <span
                                                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
@@ -255,7 +312,7 @@ export default function DealersPage() {
                                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                                             >
                                                 <Users className="w-3.5 h-3.5" />
-                                                Kullanıcıları Yönet
+                                                Kullanıcılar
                                             </button>
                                         </td>
                                     </tr>
@@ -290,6 +347,100 @@ export default function DealersPage() {
                     </div>
                 )}
             </div>
+
+            {/* Generated Password / Credentials Modal */}
+            {generatedModal && generatedModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="px-6 py-5 bg-emerald-600 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/10 rounded-xl">
+                                    <ShieldCheck className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">Bayilik Açıldı & Kullanıcı Oluşturuldu!</h3>
+                                    <p className="text-xs text-emerald-100">{generatedModal.dealerName}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setGeneratedModal(null)}
+                                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 space-y-5">
+                            <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                    Bayinin sisteme erişebilmesi için ana yetkili kullanıcı hesabı otomatik olarak tanımlandı. Bu bilgileri kopyalayıp bayinizle paylaşabilirsiniz:
+                                </div>
+                            </div>
+
+                            <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                <div>
+                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Cari Kodu / Ünvan:</span>
+                                    <div className="font-bold text-slate-900 mt-0.5">{generatedModal.dealerCode} - {generatedModal.dealerName}</div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200">
+                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Kullanıcı Adı:</span>
+                                    <div className="font-mono font-bold text-blue-600 text-sm mt-0.5">{generatedModal.username}</div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200">
+                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">E-posta:</span>
+                                    <div className="font-mono text-slate-700 mt-0.5">{generatedModal.email}</div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200">
+                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Giriş Şifresi:</span>
+                                    <div className="flex items-center justify-between mt-1 bg-white p-2.5 rounded-xl border border-slate-200">
+                                        <span className="font-mono font-bold text-base text-slate-900 tracking-wider">
+                                            {showPassword ? generatedModal.password : "••••••••"}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="text-slate-400 hover:text-slate-600 p-1"
+                                            title={showPassword ? "Şifreyi Gizle" : "Şifreyi Göster"}
+                                        >
+                                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleCopyCredentials}
+                                    className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
+                                        copied
+                                            ? "bg-emerald-600 text-white shadow-emerald-600/20"
+                                            : "bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20"
+                                    }`}
+                                >
+                                    {copied ? (
+                                        <>
+                                            <Check className="w-4 h-4 text-white" />
+                                            Bilgiler Panoya Kopyalandı!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy className="w-4 h-4 text-white" />
+                                            Tüm Giriş Bilgilerini Kopyala
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Dealer Users Modal */}
             {selectedDealer && (

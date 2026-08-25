@@ -34,6 +34,15 @@ export interface DealerUserRequest {
     status?: string; // ACTIVE, PASSIVE
 }
 
+export interface ToggleDealerResponse {
+    dealer: CariDto;
+    userCreated: boolean;
+    generatedUsername?: string;
+    generatedEmail?: string;
+    generatedPassword?: string;
+    message: string;
+}
+
 export const dealerService = {
     async getDealers(params?: { bayiActive?: boolean; search?: string; page?: number; size?: number }) {
         const q = new URLSearchParams();
@@ -49,7 +58,7 @@ export const dealerService = {
         return fetchAPI(`/admin/dealers/${id}`, { cache: "no-store" });
     },
 
-    async toggleStatus(id: number): Promise<CariDto> {
+    async toggleStatus(id: number): Promise<ToggleDealerResponse> {
         return fetchAPI(`/admin/dealers/${id}/toggle-status`, {
             method: "PUT"
         });
