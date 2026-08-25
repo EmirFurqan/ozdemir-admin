@@ -434,18 +434,30 @@ export default function DealerOrdersPage() {
 
                             {/* Financial Summary */}
                             <div className="flex justify-end pt-2">
-                                <div className="w-full sm:w-72 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                <div className="w-full sm:w-80 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                    {selectedOrder.exchangeRate && (
+                                        <div className="flex justify-between text-blue-700 bg-blue-50/80 p-2 rounded-xl border border-blue-100 font-semibold">
+                                            <span>Uygulanan Sipariş Kuru:</span>
+                                            <span className="font-mono">1 {selectedOrder.originalCurrency || "$"} = {Number(selectedOrder.exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ₺</span>
+                                        </div>
+                                    )}
+                                    {selectedOrder.originalTotalAmount && (
+                                        <div className="flex justify-between text-slate-500">
+                                            <span>Döviz Ara Toplamı:</span>
+                                            <span className="font-mono font-bold text-slate-700">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency || "$")}</span>
+                                        </div>
+                                    )}
                                     <div className="flex justify-between text-slate-600">
-                                        <span>Ara Toplam:</span>
-                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalAmount, selectedOrder.currency)}</span>
+                                        <span>Ara Toplam (TL):</span>
+                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalAmount, "TL")}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-600">
-                                        <span>Toplam KDV:</span>
-                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalVat, selectedOrder.currency)}</span>
+                                        <span>Toplam KDV (TL):</span>
+                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalVat, "TL")}</span>
                                     </div>
                                     <div className="flex justify-between text-slate-900 font-bold text-sm pt-2 border-t border-slate-200">
-                                        <span>Genel Toplam:</span>
-                                        <span className="font-mono text-blue-600">{formatMoney(selectedOrder.grandTotal, selectedOrder.currency)}</span>
+                                        <span>Sipariş Tutarı (TL):</span>
+                                        <span className="font-mono text-blue-600 text-base">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
                                     </div>
                                 </div>
                             </div>
