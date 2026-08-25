@@ -50,9 +50,18 @@ export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
         }
 
         // Handle empty responses
-        if (res.status === 204) return null;
+        if (res.status === 204) return { success: true };
 
-        return res.json();
+        const text = await res.text();
+        if (!text || text.trim() === '') {
+            return { success: true };
+        }
+
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return { message: text, success: true };
+        }
     } catch (error) {
         console.error(`[API] Network or Parse Error:`, error);
         throw error;
