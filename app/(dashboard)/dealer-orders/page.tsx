@@ -408,25 +408,55 @@ export default function DealerOrdersPage() {
                                     <table className="w-full text-xs text-left">
                                         <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
                                             <tr>
-                                                <th className="px-4 py-3">Ürün Kodu</th>
-                                                <th className="px-4 py-3">Ürün Adı</th>
+                                                <th className="px-4 py-3">Ürün</th>
                                                 <th className="px-4 py-3 text-center">Miktar</th>
-                                                <th className="px-4 py-3 text-right">Birim Fiyat</th>
+                                                <th className="px-4 py-3 text-right">Liste Fiyatı</th>
+                                                <th className="px-4 py-3 text-center">Uygulanan Kur</th>
+                                                <th className="px-4 py-3 text-right">Birim Fiyat (TL)</th>
                                                 <th className="px-4 py-3 text-right">KDV</th>
-                                                <th className="px-4 py-3 text-right">Toplam</th>
+                                                <th className="px-4 py-3 text-right">Toplam (TL)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {selectedOrder.items?.map((item: any, idx: number) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50">
-                                                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{item.productCode}</td>
-                                                    <td className="px-4 py-3 font-medium text-slate-900">{item.productName}</td>
-                                                    <td className="px-4 py-3 text-center font-bold text-slate-900">{item.quantity} Adet</td>
-                                                    <td className="px-4 py-3 text-right font-mono">{formatMoney(item.unitPrice, item.currency)}</td>
-                                                    <td className="px-4 py-3 text-right font-mono">%{item.vatRate}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-600">{formatMoney(item.totalPrice, item.currency)}</td>
-                                                </tr>
-                                            ))}
+                                            {selectedOrder.items?.map((item: any, idx: number) => {
+                                                const origCurr = item.originalCurrency || "$";
+                                                const isForeign = origCurr && !origCurr.includes("TL") && !origCurr.includes("₺");
+                                                const origPrice = item.originalPrice || item.unitPrice;
+                                                const rate = item.exchangeRate || 1.0;
+
+                                                return (
+                                                    <tr key={idx} className="hover:bg-slate-50/50">
+                                                        <td className="px-4 py-3">
+                                                            <div className="font-mono font-bold text-blue-600 text-[11px]">{item.productCode}</div>
+                                                            <div className="font-semibold text-slate-900 truncate max-w-xs">{item.productName}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-bold text-slate-900">
+                                                            {item.quantity} Adet
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-slate-700">
+                                                            {isForeign ? formatMoney(origPrice, origCurr) : formatMoney(item.unitPrice, "TL")}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            {isForeign && rate > 1 ? (
+                                                                <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 text-[11px] font-bold">
+                                                                    1 {origCurr} = {Number(rate).toFixed(2)} ₺
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-400 font-mono text-[11px]">-</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-900 font-medium">
+                                                            {formatMoney(item.unitPrice, "TL")}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-600">
+                                                            %{item.vatRate}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-mono font-bold text-blue-600 text-sm">
+                                                            {formatMoney(item.totalPrice, "TL")}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -435,16 +465,10 @@ export default function DealerOrdersPage() {
                             {/* Financial Summary */}
                             <div className="flex justify-end pt-2">
                                 <div className="w-full sm:w-80 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                                    {selectedOrder.exchangeRate && (
-                                        <div className="flex justify-between text-blue-700 bg-blue-50/80 p-2 rounded-xl border border-blue-100 font-semibold">
-                                            <span>Uygulanan Sipariş Kuru:</span>
-                                            <span className="font-mono">1 {selectedOrder.originalCurrency || "$"} = {Number(selectedOrder.exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ₺</span>
-                                        </div>
-                                    )}
-                                    {selectedOrder.originalTotalAmount && (
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Döviz Ara Toplamı:</span>
-                                            <span className="font-mono font-bold text-slate-700">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency || "$")}</span>
+                                    {selectedOrder.originalTotalAmount && selectedOrder.originalCurrency && !selectedOrder.originalCurrency.includes("TL") && (
+                                        <div className="flex justify-between text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 font-bold">
+                                            <span>Orijinal Döviz Tutarı:</span>
+                                            <span className="font-mono">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency)}</span>
                                         </div>
                                     )}
                                     <div className="flex justify-between text-slate-600">
@@ -455,9 +479,9 @@ export default function DealerOrdersPage() {
                                         <span>Toplam KDV (TL):</span>
                                         <span className="font-mono font-medium">{formatMoney(selectedOrder.totalVat, "TL")}</span>
                                     </div>
-                                    <div className="flex justify-between text-slate-900 font-bold text-sm pt-2 border-t border-slate-200">
+                                    <div className="flex justify-between text-slate-900 font-bold text-sm pt-2.5 border-t border-slate-200">
                                         <span>Sipariş Tutarı (TL):</span>
-                                        <span className="font-mono text-blue-600 text-base">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
+                                        <span className="font-mono text-blue-600 font-black text-lg">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
                                     </div>
                                 </div>
                             </div>
