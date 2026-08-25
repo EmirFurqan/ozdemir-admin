@@ -34,6 +34,8 @@ import {
     deleteDealerUserAction
 } from "@/app/actions/dealerActions";
 
+import { toast } from "sonner";
+
 export default function DealersPage() {
     const [dealers, setDealers] = useState<any[]>([]);
     const [totalPages, setTotalPages] = useState(0);
@@ -83,6 +85,7 @@ export default function DealersPage() {
             }
         } catch (e) {
             console.error("Bayiler yüklenirken hata:", e);
+            toast.error("Cari hesaplar yüklenirken bir hata oluştu.");
         } finally {
             setLoading(false);
         }
@@ -104,6 +107,12 @@ export default function DealersPage() {
                 prev.map(d => (d.id === dealer.id ? { ...d, bayiActive: updatedDealer.bayiActive, userCount: updatedDealer.userCount } : d))
             );
 
+            if (updatedDealer.bayiActive) {
+                toast.success(`${updatedDealer.definition} için bayilik erişimi açıldı.`);
+            } else {
+                toast.info(`${updatedDealer.definition} için bayilik erişimi kapatıldı.`);
+            }
+
             // Eğer otomatik kullanıcı oluşturulduysa şifre modalını aç
             if (res.userCreated && res.generatedPassword) {
                 setGeneratedModal({
@@ -117,8 +126,9 @@ export default function DealersPage() {
                 setShowPassword(true);
                 setCopied(false);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Durum değiştirilemedi:", e);
+            toast.error(e.message || "Bayilik durumu değiştirilemedi.");
         }
     };
 
@@ -127,6 +137,7 @@ export default function DealersPage() {
         const text = `Sayın Bayimiz (${generatedModal.dealerName}),\n\nÖzdemir Makina B2B Bayi Portalı erişiminiz açılmıştır.\n\nGiriş Bilgileriniz:\nE-posta: ${generatedModal.email}\nŞifre: ${generatedModal.password}\n\nPortal Giriş Adresi: https://bayi.ozdemirmakina.com`;
         navigator.clipboard.writeText(text);
         setCopied(true);
+        toast.success("Giriş bilgileri panoya kopyalandı!");
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -139,6 +150,7 @@ export default function DealersPage() {
             setDealerUsers(users || []);
         } catch (e) {
             console.error("Kullanıcılar yüklenemedi:", e);
+            toast.error("Kullanıcılar yüklenirken hata oluştu.");
         } finally {
             setLoadingUsers(false);
         }
@@ -153,7 +165,7 @@ export default function DealersPage() {
         try {
             const created = await createDealerUserAction(selectedDealer.id, {
                 ...userForm,
-                username: userForm.email // Username otomatik email olarak atanır
+                username: userForm.email
             });
             setDealerUsers(prev => [...prev, created]);
             setDealers(prev => prev.map(d => d.id === selectedDealer.id ? { ...d, userCount: (d.userCount || 0) + 1 } : d));
@@ -165,21 +177,25 @@ export default function DealersPage() {
                 phone: "",
                 role: "CUSTOMER_OWNER"
             });
+            toast.success("Yeni bayi kullanıcısı başarıyla oluşturuldu!");
         } catch (err: any) {
             setFormError(err.message || "Kullanıcı oluşturulurken bir hata oluştu.");
+            toast.error(err.message || "Kullanıcı oluşturulamadı.");
         } finally {
             setFormSubmitting(false);
         }
     };
 
     const handleDeleteUser = async (userId: number) => {
-        if (!selectedDealer || !confirm("Bu kullanıcıyı silmek istediğinize emin misiniz?")) return;
+        if (!selectedDealer) return;
         try {
             await deleteDealerUserAction(selectedDealer.id, userId);
             setDealerUsers(prev => prev.filter(u => u.id !== userId));
             setDealers(prev => prev.map(d => d.id === selectedDealer.id ? { ...d, userCount: Math.max(0, (d.userCount || 1) - 1) } : d));
-        } catch (e) {
+            toast.success("Kullanıcı başarıyla silindi.");
+        } catch (e: any) {
             console.error("Kullanıcı silinemedi:", e);
+            toast.error(e.message || "Kullanıcı silinirken bir hata oluştu.");
         }
     };
 

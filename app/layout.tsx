@@ -24,16 +24,19 @@ export const metadata: Metadata = {
   },
 };
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="tr">
       <body
         className={`${geistSans.variable} antialiased`}
       >
+        <Toaster position="top-right" richColors closeButton />
         {children}
       </body>
     </html>

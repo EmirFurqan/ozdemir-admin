@@ -28,6 +28,7 @@ import {
     deleteOrderAction,
     updateOrderStatusAction
 } from "@/app/actions/dealerActions";
+import { toast } from "sonner";
 
 export default function DealerOrdersPage() {
     const [orders, setOrders] = useState<any[]>([]);
@@ -53,6 +54,7 @@ export default function DealerOrdersPage() {
             }
         } catch (e) {
             console.error("Siparişler yüklenirken hata:", e);
+            toast.error("Siparişler yüklenirken bir hata oluştu.");
         } finally {
             setLoading(false);
         }
@@ -75,30 +77,27 @@ export default function DealerOrdersPage() {
     };
 
     const handleCancelOrder = async (orderId: number) => {
-        const reason = prompt("Siparişi iptal etme nedeniniz (Opsiyonel):", "Yönetici tarafından iptal edildi");
-        if (reason === null) return; // İptal tıklandı
-
         setActionLoading(true);
         try {
-            const res = await cancelOrderAction(orderId, reason);
+            const res = await cancelOrderAction(orderId, "Yönetici tarafından iptal edildi");
             if (res.success) {
                 setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: "CANCELLED", syncStatus: "CANCELLED" } : o));
                 if (selectedOrder && selectedOrder.id === orderId) {
                     setSelectedOrder({ ...selectedOrder, status: "CANCELLED", syncStatus: "CANCELLED" });
                 }
+                toast.warning("Sipariş başarıyla iptal edildi.");
             } else {
-                alert(res.message);
+                toast.error(res.message || "Sipariş iptal edilemedi.");
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("İptal hatası:", e);
+            toast.error(e.message || "İptal sırasında bir hata oluştu.");
         } finally {
             setActionLoading(false);
         }
     };
 
     const handleDeleteOrder = async (orderId: number) => {
-        if (!confirm("Bu siparişi tamamen silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) return;
-
         setActionLoading(true);
         try {
             const res = await deleteOrderAction(orderId);
@@ -107,11 +106,13 @@ export default function DealerOrdersPage() {
                 if (selectedOrder && selectedOrder.id === orderId) {
                     setSelectedOrder(null);
                 }
+                toast.success("Sipariş başarıyla silindi.");
             } else {
-                alert(res.message);
+                toast.error(res.message || "Sipariş silinemedi.");
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Silme hatası:", e);
+            toast.error(e.message || "Silme sırasında bir hata oluştu.");
         } finally {
             setActionLoading(false);
         }
@@ -126,11 +127,13 @@ export default function DealerOrdersPage() {
                 if (selectedOrder && selectedOrder.id === orderId) {
                     setSelectedOrder({ ...selectedOrder, status: newStatus });
                 }
+                toast.success("Sipariş durumu başarıyla güncellendi.");
             } else {
-                alert(res.message);
+                toast.error(res.message || "Durum güncellenemedi.");
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Durum güncelleme hatası:", e);
+            toast.error(e.message || "Durum güncellenirken bir hata oluştu.");
         } finally {
             setActionLoading(false);
         }
