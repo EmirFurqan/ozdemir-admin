@@ -82,3 +82,36 @@ export async function fetchDealerOrderDetailAction(orderId: number) {
         return null;
     }
 }
+
+export async function updateOrderStatusAction(orderId: number, status: string) {
+    try {
+        const res = await orderService.updateOrderStatus(orderId, status);
+        revalidatePath("/dealer-orders");
+        return { success: true, order: res };
+    } catch (error: any) {
+        console.error("updateOrderStatusAction error:", error);
+        return { success: false, message: error.message || "Durum güncellenemedi." };
+    }
+}
+
+export async function cancelOrderAction(orderId: number, reason?: string) {
+    try {
+        const res = await orderService.cancelOrder(orderId, reason);
+        revalidatePath("/dealer-orders");
+        return { success: true, order: res };
+    } catch (error: any) {
+        console.error("cancelOrderAction error:", error);
+        return { success: false, message: error.message || "Sipariş iptal edilemedi." };
+    }
+}
+
+export async function deleteOrderAction(orderId: number) {
+    try {
+        await orderService.deleteOrder(orderId);
+        revalidatePath("/dealer-orders");
+        return { success: true };
+    } catch (error: any) {
+        console.error("deleteOrderAction error:", error);
+        return { success: false, message: error.message || "Sipariş silinemedi." };
+    }
+}

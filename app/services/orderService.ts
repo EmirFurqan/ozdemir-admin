@@ -63,5 +63,24 @@ export const orderService = {
 
     async getOrderById(id: number): Promise<OrderDto> {
         return fetchAPI(`/admin/orders/${id}`, { cache: "no-store" });
+    },
+
+    async updateOrderStatus(id: number, status: string): Promise<OrderDto> {
+        return fetchAPI(`/admin/orders/${id}/status?status=${status}`, {
+            method: "PUT"
+        });
+    },
+
+    async cancelOrder(id: number, reason?: string): Promise<OrderDto> {
+        const q = reason ? `?reason=${encodeURIComponent(reason)}` : "";
+        return fetchAPI(`/admin/orders/${id}/cancel${q}`, {
+            method: "PUT"
+        });
+    },
+
+    async deleteOrder(id: number): Promise<any> {
+        return fetchAPI(`/admin/orders/${id}`, {
+            method: "DELETE"
+        });
     }
 };
