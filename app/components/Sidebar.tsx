@@ -106,8 +106,8 @@ export function Sidebar({ user }: SidebarProps) {
         {
             title: "Bayi Sistemi",
             items: [
-                { title: "Siparişler", icon: ShoppingCart, href: "/dealer/orders", disabled: true },
-                { title: "Bayiler", icon: Briefcase, href: "/dealer/users", disabled: true },
+                { title: "Siparişler", icon: ShoppingCart, href: "/dealer-orders" },
+                { title: "Bayiler & Cariler", icon: Briefcase, href: "/dealers" },
             ]
         },
         {
