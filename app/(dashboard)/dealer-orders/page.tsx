@@ -380,6 +380,31 @@ export default function DealerOrdersPage() {
                                 </div>
                             </div>
 
+                            {/* Cancellation Reason Alert */}
+                            {selectedOrder.status === "CANCELLED" && (selectedOrder.cancelReason || selectedOrder.syncMessage) && (
+                                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1">
+                                    <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                                        <Ban className="w-4 h-4 text-rose-600" />
+                                        <span>İptal Nedeni & Açıklaması:</span>
+                                    </div>
+                                    <p className="font-medium pl-5">{selectedOrder.cancelReason || selectedOrder.syncMessage}</p>
+                                </div>
+                            )}
+
+                            {/* Edited Order Alert */}
+                            {selectedOrder.isEdited && (
+                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-800 space-y-1">
+                                    <div className="font-bold flex items-center gap-1.5 text-blue-900">
+                                        <Clock className="w-4 h-4 text-blue-600" />
+                                        <span>Düzenlenmiş Sipariş (Tekrar Onay Bekliyor)</span>
+                                    </div>
+                                    <p className="font-medium pl-5">
+                                        Bu sipariş bayi tarafından güncellenmiş ve onayınıza sunulmuştur.
+                                        {selectedOrder.lastEditedAt && ` Son Değişiklik: ${new Date(selectedOrder.lastEditedAt).toLocaleString("tr-TR")}`}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Info grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
                                 <div>
