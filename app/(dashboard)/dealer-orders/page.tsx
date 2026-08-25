@@ -4,41 +4,41 @@ import React, { useState, useEffect } from "react";
 import {
     ShoppingCart,
     Search,
-    RefreshCw,
     Clock,
     CheckCircle2,
     AlertCircle,
     Eye,
     X,
-    Building2,
-    Calendar,
     FileText,
+    Building2,
+    ChevronLeft,
+    ChevronRight,
     Loader2,
-    DollarSign
+    RefreshCw,
+    Package
 } from "lucide-react";
-import { orderService, OrderDto } from "@/app/services/orderService";
+import {
+    fetchDealerOrdersAction,
+    fetchDealerOrderDetailAction
+} from "@/app/actions/dealerActions";
 
 export default function DealerOrdersPage() {
-    const [orders, setOrders] = useState<OrderDto[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
     const [page, setPage] = useState(0);
     const [search, setSearch] = useState("");
-    const [syncStatusFilter, setSyncStatusFilter] = useState<string | undefined>(undefined);
+    const [syncStatus, setSyncStatus] = useState("");
     const [loading, setLoading] = useState(true);
 
-    // Selected order for Detail Modal
-    const [selectedOrder, setSelectedOrder] = useState<OrderDto | null>(null);
+    // Order detail modal state
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
 
     const loadOrders = async () => {
         setLoading(true);
         try {
-            const data = await orderService.getOrders({
-                syncStatus: syncStatusFilter,
-                search: search.trim() || undefined,
-                page,
-                size: 15
-            });
+            const data = await fetchDealerOrdersAction(page, 15, search, syncStatus);
             if (data) {
                 setOrders(data.content || []);
                 setTotalPages(data.totalPages || 0);
@@ -52,92 +52,81 @@ export default function DealerOrdersPage() {
     };
 
     useEffect(() => {
-        loadOrders();
-    }, [page, syncStatusFilter]);
+        const timeout = setTimeout(() => {
+            loadOrders();
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [page, search, syncStatus]);
 
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setPage(0);
-        loadOrders();
+    const handleOpenDetail = async (orderId: number) => {
+        setLoadingDetail(true);
+        try {
+            const detail = await fetchDealerOrderDetailAction(orderId);
+            setSelectedOrder(detail);
+        } catch (e) {
+            console.error("Sipariş detayı yüklenemedi:", e);
+        } finally {
+            setLoadingDetail(false);
+        }
     };
 
     const formatMoney = (val: number, currency: string = "TL") => {
-        if (val === undefined || val === null) return "0.00 " + currency;
-        return Number(val).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + currency;
+        return Number(val || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " " + currency;
     };
 
     return (
-        <div className="space-y-8 max-w-7xl font-sans">
+        <div className="space-y-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                        <ShoppingCart className="w-8 h-8 text-red-600" />
+                        <ShoppingCart className="w-8 h-8 text-blue-600" />
                         Bayi Siparişleri & Logo Sync
                     </h1>
                     <p className="text-slate-500 mt-1">
-                        Bayilerin portaldan oluşturduğu tüm siparişleri ve Logo ERP'ye aktarım durumlarını buradan takip edebilirsiniz.
+                        Bayilerden gelen tüm siparişleri ve Logo ERP'ye aktarım durumlarını buradan anlık olarak izleyebilirsiniz.
                     </p>
                 </div>
                 <button
                     onClick={loadOrders}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-sm font-medium transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-sm font-medium transition-colors shadow-sm cursor-pointer"
                 >
                     <RefreshCw className="w-4 h-4" /> Yenile
                 </button>
             </div>
 
             {/* Filter and Search Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-                <form onSubmit={handleSearchSubmit} className="flex-1 w-full flex gap-2">
-                    <div className="relative flex-1">
-                        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Sipariş No, Bayi Adı veya Cari Kodu ara..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 bg-slate-50/50"
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-colors"
-                    >
-                        Ara
-                    </button>
-                </form>
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="relative w-full sm:w-96">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                        type="text"
+                        placeholder="Sipariş No, Bayi Kodu veya Ünvan Ara..."
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                </div>
 
-                {/* Status Filter Buttons */}
-                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full md:w-auto">
-                    <button
-                        onClick={() => { setSyncStatusFilter(undefined); setPage(0); }}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${syncStatusFilter === undefined ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <select
+                        value={syncStatus}
+                        onChange={(e) => { setSyncStatus(e.target.value); setPage(0); }}
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     >
-                        Tümü ({totalElements})
-                    </button>
-                    <button
-                        onClick={() => { setSyncStatusFilter("PENDING"); setPage(0); }}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${syncStatusFilter === "PENDING" ? 'bg-amber-500 text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                        Logo Bekleyenler
-                    </button>
-                    <button
-                        onClick={() => { setSyncStatusFilter("SUCCESS"); setPage(0); }}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${syncStatusFilter === "SUCCESS" ? 'bg-emerald-600 text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                        Logo'ya Aktarılanlar
-                    </button>
-                    <button
-                        onClick={() => { setSyncStatusFilter("FAILED"); setPage(0); }}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${syncStatusFilter === "FAILED" ? 'bg-rose-600 text-white shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                        Hatalı Olanlar
-                    </button>
+                        <option value="">Tüm Durumlar</option>
+                        <option value="PENDING">Logo Aktarımı Bekleyenler</option>
+                        <option value="SUCCESS">Logo'ya Aktarılanlar</option>
+                        <option value="FAILED">Aktarımı Başarısız Olanlar</option>
+                    </select>
+
+                    <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg whitespace-nowrap">
+                        Toplam <span className="text-slate-900 font-bold">{totalElements}</span> Sipariş
+                    </div>
                 </div>
             </div>
 
-            {/* Orders Table */}
+            {/* Table */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
@@ -145,55 +134,59 @@ export default function DealerOrdersPage() {
                             <tr>
                                 <th className="px-6 py-4 font-semibold">Sipariş No</th>
                                 <th className="px-6 py-4 font-semibold">Tarih</th>
-                                <th className="px-6 py-4 font-semibold">Bayi / Cari Bilgisi</th>
+                                <th className="px-6 py-4 font-semibold">Bayi / Cari</th>
+                                <th className="px-6 py-4 font-semibold">Kalem</th>
                                 <th className="px-6 py-4 font-semibold">Toplam Tutar</th>
-                                <th className="px-6 py-4 font-semibold text-center">Logo Durumu</th>
+                                <th className="px-6 py-4 font-semibold text-center">Logo Sync</th>
                                 <th className="px-6 py-4 font-semibold text-right">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex items-center justify-center gap-2">
-                                            <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+                                            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                                             Siparişler yükleniyor...
                                         </div>
                                     </td>
                                 </tr>
                             ) : orders.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                        Henüz sipariş bulunmuyor.
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                                        Herhangi bir bayi siparişi bulunamadı.
                                     </td>
                                 </tr>
                             ) : (
                                 orders.map((order) => (
                                     <tr key={order.id} className="hover:bg-slate-50/70 transition-colors">
-                                        <td className="px-6 py-4 font-mono font-bold text-slate-900">
+                                        <td className="px-6 py-4 font-mono font-bold text-slate-900 whitespace-nowrap">
                                             {order.orderNumber}
                                         </td>
                                         <td className="px-6 py-4 text-xs text-slate-600 whitespace-nowrap">
-                                            {order.orderDate ? new Date(order.orderDate).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" }) : "-"}
+                                            {order.orderDate ? new Date(order.orderDate).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }) : "-"}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="font-semibold text-slate-900 max-w-xs truncate" title={order.cariName}>
                                                 {order.cariName}
                                             </div>
-                                            <div className="text-xs text-slate-400 font-mono mt-0.5">
-                                                Cari Kodu: {order.cariCode} {order.userFullName && `• ${order.userFullName}`}
+                                            <div className="text-[11px] text-slate-500 font-mono">
+                                                {order.cariCode} (Logo Ref: #{order.logoLogicalRef})
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 font-mono font-bold text-slate-900">
+                                        <td className="px-6 py-4 text-xs font-semibold text-slate-700">
+                                            {order.items?.length || 0} Kalem
+                                        </td>
+                                        <td className="px-6 py-4 font-mono font-bold text-blue-600 whitespace-nowrap">
                                             {formatMoney(order.grandTotal, order.currency)}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <SyncStatusBadge status={order.syncStatus} logoFicheNo={order.logoOrderNumber} />
+                                            <SyncStatusBadge status={order.syncStatus} />
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button
-                                                onClick={() => setSelectedOrder(order)}
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors"
+                                                onClick={() => handleOpenDetail(order.id)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                                             >
                                                 <Eye className="w-3.5 h-3.5" />
                                                 Detay
@@ -216,16 +209,16 @@ export default function DealerOrdersPage() {
                             <button
                                 disabled={page === 0}
                                 onClick={() => setPage(p => Math.max(0, p - 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium disabled:opacity-40 hover:bg-white bg-white/50"
+                                className="p-2 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-white bg-white/50 text-slate-700 cursor-pointer disabled:cursor-not-allowed"
                             >
-                                Önceki
+                                <ChevronLeft className="w-4 h-4" />
                             </button>
                             <button
                                 disabled={page >= totalPages - 1}
                                 onClick={() => setPage(p => p + 1)}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium disabled:opacity-40 hover:bg-white bg-white/50"
+                                className="p-2 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-white bg-white/50 text-slate-700 cursor-pointer disabled:cursor-not-allowed"
                             >
-                                Sonraki
+                                <ChevronRight className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
@@ -234,60 +227,50 @@ export default function DealerOrdersPage() {
 
             {/* Order Detail Modal */}
             {selectedOrder && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs animate-in fade-in duration-200">
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
                         {/* Modal Header */}
-                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-900 text-white flex items-center justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-red-600" />
-                                    Sipariş Detayı: <span className="font-mono text-red-600">{selectedOrder.orderNumber}</span>
+                                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                                    <FileText className="w-5 h-5 text-blue-400" />
+                                    Sipariş #{selectedOrder.orderNumber}
                                 </h3>
-                                <p className="text-xs text-slate-500 mt-0.5">
-                                    Tarih: {new Date(selectedOrder.orderDate).toLocaleString("tr-TR")}
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                    {selectedOrder.cariName} ({selectedOrder.cariCode}) • {new Date(selectedOrder.orderDate).toLocaleString("tr-TR")}
                                 </p>
                             </div>
                             <button
                                 onClick={() => setSelectedOrder(null)}
-                                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
+                                className="text-slate-400 hover:text-white text-xs font-medium cursor-pointer"
                             >
-                                <X className="w-5 h-5" />
+                                Kapat
                             </button>
                         </div>
 
                         {/* Modal Body */}
                         <div className="p-6 overflow-y-auto flex-1 space-y-6">
-                            {/* Dealer & Logo Sync Summary */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-                                <div className="space-y-1.5">
-                                    <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider text-slate-500">Bayi Bilgileri</div>
-                                    <div className="font-semibold text-slate-900 text-sm">{selectedOrder.cariName}</div>
-                                    <div className="font-mono text-slate-600">Cari Kodu: {selectedOrder.cariCode}</div>
-                                    <div className="font-mono text-slate-600">Logo Logical Ref: {selectedOrder.cariLogoLogicalRef || '-'}</div>
-                                    {selectedOrder.userFullName && (
-                                        <div className="text-slate-600">Siparişi Veren: {selectedOrder.userFullName} ({selectedOrder.userEmail})</div>
-                                    )}
-                                </div>
-                                <div className="space-y-1.5">
-                                    <div className="font-bold text-slate-900 uppercase text-[10px] tracking-wider text-slate-500">Logo Entegrasyon Durumu</div>
-                                    <div className="pt-0.5">
-                                        <SyncStatusBadge status={selectedOrder.syncStatus} logoFicheNo={selectedOrder.logoOrderNumber} />
+                            {/* Sync Status Banner */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div>
+                                    <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Logo Entegrasyon Durumu</div>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <SyncStatusBadge status={selectedOrder.syncStatus} />
+                                        {selectedOrder.logoOrderNumber && (
+                                            <span className="text-xs font-mono font-bold text-slate-700">
+                                                Fiş No: {selectedOrder.logoOrderNumber} (Logo Ref: #{selectedOrder.logoOrderLogicalRef})
+                                            </span>
+                                        )}
                                     </div>
-                                    {selectedOrder.logoOrderLogicalRef && (
-                                        <div className="font-mono text-slate-600">Logo ORFICHE Ref: {selectedOrder.logoOrderLogicalRef}</div>
-                                    )}
-                                    {selectedOrder.syncedAt && (
-                                        <div className="text-slate-600">Aktarım Tarihi: {new Date(selectedOrder.syncedAt).toLocaleString("tr-TR")}</div>
-                                    )}
-                                    {selectedOrder.syncMessage && (
-                                        <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-700 text-xs">
-                                            Hata: {selectedOrder.syncMessage}
-                                        </div>
-                                    )}
                                 </div>
+                                {selectedOrder.syncMessage && (
+                                    <div className="text-xs text-rose-600 max-w-sm">
+                                        <strong>Hata:</strong> {selectedOrder.syncMessage}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Order Items Table */}
+                            {/* Items Table */}
                             <div>
                                 <h4 className="font-bold text-slate-900 text-sm mb-3">Sipariş Kalemleri ({selectedOrder.items?.length || 0})</h4>
                                 <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -296,7 +279,7 @@ export default function DealerOrdersPage() {
                                             <tr>
                                                 <th className="px-4 py-3">Ürün Kodu</th>
                                                 <th className="px-4 py-3">Ürün Adı</th>
-                                                <th className="px-4 py-3 text-center">Logo Ref</th>
+                                                <th className="px-4 py-3">Logo Ref</th>
                                                 <th className="px-4 py-3 text-center">Miktar</th>
                                                 <th className="px-4 py-3 text-right">Birim Fiyat</th>
                                                 <th className="px-4 py-3 text-right">KDV</th>
@@ -304,15 +287,15 @@ export default function DealerOrdersPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {selectedOrder.items?.map((item, idx) => (
+                                            {selectedOrder.items?.map((item: any, idx: number) => (
                                                 <tr key={idx} className="hover:bg-slate-50/50">
-                                                    <td className="px-4 py-3 font-mono font-medium text-slate-800">{item.productCode}</td>
+                                                    <td className="px-4 py-3 font-mono font-bold text-slate-800">{item.productCode}</td>
                                                     <td className="px-4 py-3 font-medium text-slate-900">{item.productName}</td>
-                                                    <td className="px-4 py-3 text-center font-mono text-slate-500">{item.logoItemLogicalRef || '-'}</td>
-                                                    <td className="px-4 py-3 text-center font-bold text-slate-900">{item.quantity} Adet</td>
+                                                    <td className="px-4 py-3 font-mono text-slate-500">#{item.logoItemLogicalRef}</td>
+                                                    <td className="px-4 py-3 text-center font-bold text-slate-900">{item.quantity}</td>
                                                     <td className="px-4 py-3 text-right font-mono">{formatMoney(item.unitPrice, item.currency)}</td>
                                                     <td className="px-4 py-3 text-right font-mono">%{item.vatRate}</td>
-                                                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">{formatMoney(item.totalPrice, item.currency)}</td>
+                                                    <td className="px-4 py-3 text-right font-mono font-bold text-blue-600">{formatMoney(item.totalPrice, item.currency)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -320,14 +303,15 @@ export default function DealerOrdersPage() {
                                 </div>
                             </div>
 
-                            {/* Notes and Totals */}
-                            <div className="flex flex-col sm:flex-row justify-between gap-4 pt-2">
-                                <div className="flex-1 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-                                    <div className="font-semibold text-slate-700 mb-1">Sipariş Notu:</div>
-                                    <p className="text-slate-600">{selectedOrder.notes || "Not eklenmemiş."}</p>
+                            {/* Summary & Notes */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <h5 className="font-semibold text-xs text-slate-700 uppercase mb-1">Sipariş Notu:</h5>
+                                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                        {selectedOrder.notes || "Not belirtilmedi."}
+                                    </p>
                                 </div>
-
-                                <div className="w-full sm:w-64 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                                <div className="space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
                                     <div className="flex justify-between text-slate-600">
                                         <span>Ara Toplam (KDV Hariç):</span>
                                         <span className="font-mono font-medium">{formatMoney(selectedOrder.totalAmount, selectedOrder.currency)}</span>
@@ -338,7 +322,7 @@ export default function DealerOrdersPage() {
                                     </div>
                                     <div className="flex justify-between text-slate-900 font-bold text-sm pt-2 border-t border-slate-200">
                                         <span>Genel Toplam:</span>
-                                        <span className="font-mono text-red-600">{formatMoney(selectedOrder.grandTotal, selectedOrder.currency)}</span>
+                                        <span className="font-mono text-blue-600">{formatMoney(selectedOrder.grandTotal, selectedOrder.currency)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -350,12 +334,12 @@ export default function DealerOrdersPage() {
     );
 }
 
-function SyncStatusBadge({ status, logoFicheNo }: { status: string; logoFicheNo?: string }) {
+function SyncStatusBadge({ status }: { status: string }) {
     if (status === "SUCCESS") {
         return (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Logo'ya Aktarıldı {logoFicheNo && `(${logoFicheNo})`}
+                Logo'ya Aktarıldı
             </span>
         );
     }
@@ -364,7 +348,7 @@ function SyncStatusBadge({ status, logoFicheNo }: { status: string; logoFicheNo?
         return (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                 <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                Logo Aktarım Hatası
+                Aktarım Hatası
             </span>
         );
     }
