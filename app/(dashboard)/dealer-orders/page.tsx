@@ -15,11 +15,13 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2,
-    User,
     Ban,
     Trash2,
     Check,
-    Send
+    Send,
+    Percent,
+    Tag,
+    Package
 } from "lucide-react";
 import {
     fetchDealerOrdersAction,
@@ -428,18 +430,21 @@ export default function DealerOrdersPage() {
 
                             {/* Items Table */}
                             <div>
-                                <h4 className="font-bold text-slate-900 text-sm mb-3">Sipariş Kalemleri ({selectedOrder.items?.length || 0})</h4>
+                                <h4 className="font-bold text-slate-900 text-sm mb-3 flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-blue-600" />
+                                    Sipariş Kalemleri ({selectedOrder.items?.length || 0})
+                                </h4>
                                 <div className="border border-slate-200 rounded-2xl overflow-hidden">
                                     <table className="w-full text-xs text-left">
                                         <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
                                             <tr>
-                                                <th className="px-4 py-3">Ürün</th>
-                                                <th className="px-4 py-3 text-center">Miktar</th>
-                                                <th className="px-4 py-3 text-right">Liste Fiyatı</th>
-                                                <th className="px-4 py-3 text-center">Uygulanan Kur</th>
-                                                <th className="px-4 py-3 text-right">Birim Fiyat (TL)</th>
-                                                <th className="px-4 py-3 text-right">KDV</th>
-                                                <th className="px-4 py-3 text-right">Toplam (TL)</th>
+                                                <th className="px-4 py-3 font-semibold">Ürün</th>
+                                                <th className="px-4 py-3 font-semibold text-right">Liste Fiyatı</th>
+                                                <th className="px-4 py-3 font-semibold text-center">İskonto</th>
+                                                <th className="px-4 py-3 font-semibold text-right">Net Birim (TL)</th>
+                                                <th className="px-4 py-3 font-semibold text-center">Miktar</th>
+                                                <th className="px-4 py-3 font-semibold text-right">KDV</th>
+                                                <th className="px-4 py-3 font-semibold text-right">Toplam (TL)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -447,7 +452,7 @@ export default function DealerOrdersPage() {
                                                 const origCurr = item.originalCurrency || "$";
                                                 const isForeign = origCurr && !origCurr.includes("TL") && !origCurr.includes("₺");
                                                 const origPrice = item.originalPrice || item.unitPrice;
-                                                const rate = item.exchangeRate || 1.0;
+                                                const hasDiscount = (item.discountRate || 0) > 0;
 
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50/50">
@@ -455,23 +460,25 @@ export default function DealerOrdersPage() {
                                                             <div className="font-mono font-bold text-blue-600 text-[11px]">{item.productCode}</div>
                                                             <div className="font-semibold text-slate-900 truncate max-w-xs">{item.productName}</div>
                                                         </td>
-                                                        <td className="px-4 py-3 text-center font-bold text-slate-900">
-                                                            {item.quantity} Adet
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-slate-700">
-                                                            {isForeign ? formatMoney(origPrice, origCurr) : formatMoney(item.unitPrice, "TL")}
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className={`font-mono font-bold ${hasDiscount ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                                                                {isForeign ? formatMoney(origPrice, origCurr) : formatMoney(origPrice, "TL")}
+                                                            </div>
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
-                                                            {isForeign && rate > 1 ? (
-                                                                <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 text-[11px] font-bold">
-                                                                    1 {origCurr} = {Number(rate).toFixed(2)} ₺
+                                                            {hasDiscount ? (
+                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                                                                    -%{item.discountRate}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-slate-400 font-mono text-[11px]">-</span>
+                                                                <span className="text-slate-300 font-mono">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-mono text-slate-900 font-medium">
+                                                        <td className="px-4 py-3 text-right font-mono text-slate-900 font-bold">
                                                             {formatMoney(item.unitPrice, "TL")}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-center font-bold text-slate-900">
+                                                            {item.quantity} Adet
                                                         </td>
                                                         <td className="px-4 py-3 text-right font-mono text-slate-600">
                                                             %{item.vatRate}
@@ -488,28 +495,55 @@ export default function DealerOrdersPage() {
                             </div>
 
                             {/* Financial Summary */}
-                            <div className="flex justify-end pt-2">
-                                <div className="w-full sm:w-80 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                                    {selectedOrder.originalTotalAmount && selectedOrder.originalCurrency && !selectedOrder.originalCurrency.includes("TL") && (
-                                        <div className="flex justify-between text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 font-bold">
-                                            <span>Orijinal Döviz Tutarı:</span>
-                                            <span className="font-mono">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency)}</span>
+                            {(() => {
+                                const listSubTotal = (selectedOrder.items || []).reduce((acc: number, it: any) => {
+                                    const orig = Number(it.originalPrice || it.unitPrice || 0);
+                                    const rate = Number(it.exchangeRate || 1);
+                                    const qty = Number(it.quantity || 0);
+                                    return acc + (orig * rate * qty);
+                                }, 0);
+                                const discountSavings = Math.max(0, listSubTotal - Number(selectedOrder.totalAmount || 0));
+
+                                return (
+                                    <div className="flex justify-end pt-2">
+                                        <div className="w-full sm:w-80 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                            {selectedOrder.originalTotalAmount && selectedOrder.originalCurrency && !selectedOrder.originalCurrency.includes("TL") && (
+                                                <div className="flex justify-between text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 font-bold">
+                                                    <span>Orijinal Döviz Tutarı:</span>
+                                                    <span className="font-mono">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency)}</span>
+                                                </div>
+                                            )}
+                                            {discountSavings > 0 && (
+                                                <div className="flex justify-between text-slate-500">
+                                                    <span>Liste Toplamı:</span>
+                                                    <span className="font-mono font-semibold line-through">{formatMoney(listSubTotal, "TL")}</span>
+                                                </div>
+                                            )}
+                                            {discountSavings > 0 && (
+                                                <div className="flex justify-between text-emerald-700 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200 font-bold">
+                                                    <span className="flex items-center gap-1">
+                                                        <Tag className="w-3.5 h-3.5" />
+                                                        İskonto İndirimi:
+                                                    </span>
+                                                    <span className="font-mono">-{formatMoney(discountSavings, "TL")}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between text-slate-600">
+                                                <span>Net Ara Toplam (TL):</span>
+                                                <span className="font-mono font-bold text-slate-800">{formatMoney(selectedOrder.totalAmount, "TL")}</span>
+                                            </div>
+                                            <div className="flex justify-between text-slate-600">
+                                                <span>Toplam KDV (TL):</span>
+                                                <span className="font-mono font-medium text-slate-700">{formatMoney(selectedOrder.totalVat, "TL")}</span>
+                                            </div>
+                                            <div className="flex justify-between text-slate-900 font-bold text-sm pt-2.5 border-t border-slate-200">
+                                                <span>Sipariş Tutarı (TL):</span>
+                                                <span className="font-mono text-blue-600 font-black text-lg">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
+                                            </div>
                                         </div>
-                                    )}
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>Ara Toplam (TL):</span>
-                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalAmount, "TL")}</span>
                                     </div>
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>Toplam KDV (TL):</span>
-                                        <span className="font-mono font-medium">{formatMoney(selectedOrder.totalVat, "TL")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-slate-900 font-bold text-sm pt-2.5 border-t border-slate-200">
-                                        <span>Sipariş Tutarı (TL):</span>
-                                        <span className="font-mono text-blue-600 font-black text-lg">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
-                                    </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
