@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
 import { bulkAssignGroupAction, deleteProductGroupAction } from "@/app/actions/productGroup";
 import { getProductsForSelect } from "@/app/actions/product";
+import { fetchGroupTierDiscountsAction, saveGroupTierDiscountsAction } from "@/app/actions/tierDiscountActions";
 import TableImage from "@/app/components/TableImage";
 import {
     ArrowLeft,
@@ -34,7 +35,9 @@ import {
     ChevronDown,
     ChevronUp,
     X,
-    CheckSquare
+    CheckSquare,
+    Percent,
+    Tag
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
 import ProductSelectModal from "./ProductSelectModal";
@@ -93,6 +96,14 @@ export default function ProductGroupEditor({
     const [groupDescription, setGroupDescription] = useState(group?.description || "");
     const [brandId, setBrandId] = useState<string>("");
     const [categoryId, setCategoryId] = useState<string>("");
+
+    // Tier Discounts (S, A, B, P)
+    const [tierDiscounts, setTierDiscounts] = useState<{ S: number; A: number; B: number; P: number }>({
+        S: 0,
+        A: 0,
+        B: 0,
+        P: 0
+    });
 
     // Shared assets
     const [images, setImages] = useState<GroupImage[]>([]);
@@ -312,6 +323,25 @@ export default function ProductGroupEditor({
                 });
         }
     }, []);
+
+    // Load Tier Discounts for this group
+    useEffect(() => {
+        if (groupId && groupId > 0) {
+            fetchGroupTierDiscountsAction(groupId)
+                .then((discounts) => {
+                    if (Array.isArray(discounts) && discounts.length > 0) {
+                        const map: any = { S: 0, A: 0, B: 0, P: 0 };
+                        discounts.forEach((d: any) => {
+                            if (d.tier && map[d.tier.toUpperCase()] !== undefined) {
+                                map[d.tier.toUpperCase()] = Number(d.discountPercent || 0);
+                            }
+                        });
+                        setTierDiscounts(map);
+                    }
+                })
+                .catch((err) => console.error("Tier discounts loading error:", err));
+        }
+    }, [groupId]);
 
     // Combobox options
     const availableProducts = useMemo(() => {
@@ -646,9 +676,18 @@ export default function ProductGroupEditor({
 
             const res = await bulkAssignGroupAction(payload);
             if (res.success) {
+                const targetGroupId = groupId > 0 ? groupId : res.group?.id;
+                if (targetGroupId) {
+                    try {
+                        await saveGroupTierDiscountsAction(targetGroupId, tierDiscounts, true);
+                    } catch (err) {
+                        console.error("Tier discounts save warning:", err);
+                    }
+                }
+
                 setStatusMessage({
                     type: "success",
-                    text: groupId > 0 ? "Tüm grup ortak detayları ve alt ürünler başarıyla güncellendi!" : "Yeni ürün grubu başarıyla oluşturuldu!",
+                    text: groupId > 0 ? "Tüm grup ortak detayları, iskontolar ve alt ürünler başarıyla güncellendi!" : "Yeni ürün grubu ve iskontolar başarıyla oluşturuldu!",
                 });
                 if ((!groupId || groupId === 0) && res.group?.id) {
                     router.push(`/product-groups/${res.group.id}`);
@@ -1136,7 +1175,112 @@ export default function ProductGroupEditor({
                 </div>
             </div>
 
-            {/* SECTION 4: Grup Ürünleri & Varyant Yönetimi (Bulk Update Table) */}
+            {/* SECTION 4: Müşteri Grubu İskonto Oranları (S, A, B, P) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                        <Percent className="w-5 h-5 text-amber-600" />
+                        <div>
+                            <h3 className="font-bold text-slate-900 text-base">
+                                4. Müşteri Grubu İskonto Oranları (S, A, B, P)
+                            </h3>
+                        </div>
+                    </div>
+                    <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                        Bayi Portalı İskonto Matrisi
+                    </span>
+                </div>
+
+                <p className="text-xs text-slate-500 leading-relaxed">
+                    Bu ürün grubuna dahil olan tüm ürünler için müşteri grubu bazlı iskonto yüzdelerini (%) belirleyin.
+                    Kaydettiğinizde gruptaki tüm alt varyantlara da otomatik tanımlanır ve bayiler sepetlerinde bu oranlara göre indirimli fiyatları görür.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                    {/* S Grubu */}
+                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-amber-900">⭐ S Grubu</span>
+                            <span className="text-[10px] font-bold text-amber-700 bg-white px-2 py-0.5 rounded border border-amber-200">En Avantajlı</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-slate-500">%</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={tierDiscounts.S !== undefined ? tierDiscounts.S : ""}
+                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, S: parseFloat(e.target.value) || 0 }))}
+                                className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm font-black text-amber-950 focus:ring-2 focus:ring-amber-400"
+                                placeholder="Örn: 40"
+                            />
+                        </div>
+                    </div>
+
+                    {/* A Grubu */}
+                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-blue-900">💎 A Grubu</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-slate-500">%</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={tierDiscounts.A !== undefined ? tierDiscounts.A : ""}
+                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, A: parseFloat(e.target.value) || 0 }))}
+                                className="w-full bg-white border border-blue-300 rounded-lg px-3 py-1.5 text-sm font-bold text-blue-950 focus:ring-2 focus:ring-blue-400"
+                                placeholder="Örn: 35"
+                            />
+                        </div>
+                    </div>
+
+                    {/* B Grubu */}
+                    <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-indigo-900">🔷 B Grubu</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-slate-500">%</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={tierDiscounts.B !== undefined ? tierDiscounts.B : ""}
+                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, B: parseFloat(e.target.value) || 0 }))}
+                                className="w-full bg-white border border-indigo-300 rounded-lg px-3 py-1.5 text-sm font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-400"
+                                placeholder="Örn: 30"
+                            />
+                        </div>
+                    </div>
+
+                    {/* P Grubu */}
+                    <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-purple-900">🔶 P Grubu</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-slate-500">%</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                                value={tierDiscounts.P !== undefined ? tierDiscounts.P : ""}
+                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, P: parseFloat(e.target.value) || 0 }))}
+                                className="w-full bg-white border border-purple-300 rounded-lg px-3 py-1.5 text-sm font-bold text-purple-950 focus:ring-2 focus:ring-purple-400"
+                                placeholder="Örn: 20"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* SECTION 5: Grup Ürünleri & Varyant Yönetimi (Bulk Update Table) */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
                     <div>

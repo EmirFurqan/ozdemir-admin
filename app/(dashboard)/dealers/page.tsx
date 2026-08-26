@@ -29,6 +29,7 @@ import {
 import {
     fetchDealersAction,
     toggleDealerStatusAction,
+    updateDealerDetailsAction,
     fetchDealerUsersAction,
     createDealerUserAction,
     deleteDealerUserAction
@@ -129,6 +130,20 @@ export default function DealersPage() {
         } catch (e: any) {
             console.error("Durum değiştirilemedi:", e);
             toast.error(e.message || "Bayilik durumu değiştirilemedi.");
+        }
+    };
+
+    const handleUpdateTier = async (dealerId: number, newTier: string) => {
+        try {
+            const res = await updateDealerDetailsAction(dealerId, { tier: newTier });
+            if (res.success) {
+                setDealers(prev => prev.map(d => d.id === dealerId ? { ...d, tier: newTier } : d));
+                toast.success(`Müşteri grubu başarıyla "${newTier}" olarak güncellendi.`);
+            } else {
+                toast.error(res.message || "Grup güncellenemedi.");
+            }
+        } catch (e: any) {
+            toast.error(e.message || "Grup güncellenirken hata oluştu.");
         }
     };
 
@@ -259,6 +274,7 @@ export default function DealersPage() {
                                 <th className="px-6 py-4 font-semibold">Logo Ref</th>
                                 <th className="px-6 py-4 font-semibold">Cari Kodu</th>
                                 <th className="px-6 py-4 font-semibold">Cari Ünvanı</th>
+                                <th className="px-6 py-4 font-semibold text-center">Müşteri Grubu</th>
                                 <th className="px-6 py-4 font-semibold">Şehir / İlçe</th>
                                 <th className="px-6 py-4 font-semibold text-center">Kullanıcı</th>
                                 <th className="px-6 py-4 font-semibold text-center">Bayi Erişimi</th>
@@ -268,7 +284,7 @@ export default function DealersPage() {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex items-center justify-center gap-2">
                                             <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                                             Cari hesaplar yükleniyor...
@@ -277,7 +293,7 @@ export default function DealersPage() {
                                 </tr>
                             ) : dealers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                                         Arama kriterine uygun cari hesap bulunamadı.
                                     </td>
                                 </tr>
@@ -292,6 +308,25 @@ export default function DealersPage() {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-900 max-w-xs truncate" title={dealer.definition}>
                                             {dealer.definition}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <select
+                                                value={dealer.tier || "STANDART"}
+                                                onChange={(e) => handleUpdateTier(dealer.id, e.target.value)}
+                                                className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all cursor-pointer outline-none ${
+                                                    dealer.tier === "S" ? "bg-amber-50 text-amber-900 border-amber-300 ring-1 ring-amber-200" :
+                                                    dealer.tier === "A" ? "bg-blue-50 text-blue-900 border-blue-300 ring-1 ring-blue-200" :
+                                                    dealer.tier === "B" ? "bg-indigo-50 text-indigo-900 border-indigo-300 ring-1 ring-indigo-200" :
+                                                    dealer.tier === "P" ? "bg-purple-50 text-purple-900 border-purple-300 ring-1 ring-purple-200" :
+                                                    "bg-slate-50 text-slate-700 border-slate-200"
+                                                }`}
+                                            >
+                                                <option value="S">⭐ S Grubu</option>
+                                                <option value="A">💎 A Grubu</option>
+                                                <option value="B">🔷 B Grubu</option>
+                                                <option value="P">🔶 P Grubu</option>
+                                                <option value="STANDART">Standart</option>
+                                            </select>
                                         </td>
                                         <td className="px-6 py-4 text-xs text-slate-600">
                                             {dealer.city || dealer.district ? `${dealer.city || ''} / ${dealer.district || ''}` : '-'}

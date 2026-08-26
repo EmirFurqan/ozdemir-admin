@@ -7,6 +7,8 @@ export interface CariDto {
     definition: string;
     groupCode: string;
     bayiActive: boolean;
+    tier?: string; // S, A, B, P, STANDART
+    discountRate?: number;
     email?: string;
     phone?: string;
     city?: string;
@@ -22,6 +24,8 @@ export interface UserDto {
     role?: string;
     companyName?: string;
     cariCode?: string;
+    tier?: string;
+    discountRate?: number;
 }
 
 export interface DealerUserRequest {

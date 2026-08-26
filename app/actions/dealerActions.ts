@@ -29,6 +29,17 @@ export async function toggleDealerStatusAction(id: number) {
     }
 }
 
+export async function updateDealerDetailsAction(id: number, data: any) {
+    try {
+        const res = await dealerService.updateDealerDetails(id, data);
+        revalidatePath("/dealers");
+        return { success: true, dealer: res };
+    } catch (error: any) {
+        console.error("updateDealerDetailsAction error:", error);
+        return { success: false, message: error.message || "Bayi güncellenemedi." };
+    }
+}
+
 export async function fetchDealerUsersAction(dealerId: number) {
     try {
         return await dealerService.getDealerUsers(dealerId);
