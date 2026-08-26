@@ -21,7 +21,14 @@ import {
     Send,
     Percent,
     Tag,
-    Package
+    Package,
+    Calendar,
+    TrendingUp,
+    Receipt,
+    ShieldCheck,
+    User,
+    ExternalLink,
+    Layers
 } from "lucide-react";
 import {
     fetchDealerOrdersAction,
@@ -314,118 +321,177 @@ export default function DealerOrdersPage() {
                 )}
             </div>
 
-            {/* Order Detail Modal */}
+            {/* Order Detail Modal (Wide, Modern & Spacious) */}
             {selectedOrder && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
                         {/* Modal Header */}
-                        <div className="px-6 py-5 border-b border-slate-100 bg-slate-900 text-white flex items-center justify-between">
-                            <div>
-                                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                                    <FileText className="w-5 h-5 text-blue-400" />
-                                    Sipariş: <span className="font-mono text-blue-400">{selectedOrder.orderNumber}</span>
-                                </h3>
-                                <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                                    {selectedOrder.cariName} ({selectedOrder.cariCode})
-                                </p>
+                        <div className="px-6 py-4.5 border-b border-slate-800 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-3.5">
+                                <div className="p-2.5 bg-blue-600 text-white rounded-2xl shadow-md shadow-blue-600/30">
+                                    <ShoppingCart className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                        <h3 className="text-lg font-black text-white font-mono tracking-tight">
+                                            {selectedOrder.orderNumber}
+                                        </h3>
+                                        <OrderStatusBadge status={selectedOrder.status || selectedOrder.syncStatus} />
+                                        {selectedOrder.isEdited && (
+                                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                                <Clock className="w-3 h-3" /> Düzenlenmiş Sipariş
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        <span className="font-semibold text-slate-200">{selectedOrder.cariName}</span>
+                                        <span className="mx-2 text-slate-600">•</span>
+                                        <span className="font-mono text-blue-400 font-bold">{selectedOrder.cariCode}</span>
+                                    </p>
+                                </div>
                             </div>
-                            <button
-                                onClick={() => setSelectedOrder(null)}
-                                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setSelectedOrder(null)}
+                                    className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+                                    title="Kapat"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Modal Body */}
                         <div className="p-6 overflow-y-auto flex-1 space-y-6">
                             {/* Actions & Status Control Bar */}
                             <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                <div>
-                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mevcut Durum</div>
-                                    <div className="mt-1">
-                                        <OrderStatusBadge status={selectedOrder.status || selectedOrder.syncStatus} />
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                        Sipariş Durumunu Güncelle:
+                                    </span>
                                     <select
                                         disabled={actionLoading}
                                         value={selectedOrder.status || "PENDING_SYNC"}
                                         onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value)}
-                                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                                        className="px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 shadow-2xs focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                                     >
-                                        <option value="PENDING_SYNC">Onay Bekliyor</option>
-                                        <option value="PROCESSING">Hazırlanıyor</option>
-                                        <option value="SYNCED_TO_LOGO">Onaylandı</option>
-                                        <option value="COMPLETED">Faturalandı & Tamamlandı</option>
-                                        <option value="CANCELLED">İptal Edildi</option>
+                                        <option value="PENDING_SYNC">⏳ Onay Bekliyor</option>
+                                        <option value="PROCESSING">📦 Hazırlanıyor</option>
+                                        <option value="SYNCED_TO_LOGO">✅ Onaylandı (Logo'ya Aktarıldı)</option>
+                                        <option value="COMPLETED">🎉 Faturalandı & Tamamlandı</option>
+                                        <option value="CANCELLED">❌ İptal Edildi</option>
                                     </select>
+                                </div>
 
+                                <div className="flex items-center gap-2.5">
                                     {selectedOrder.status !== "CANCELLED" && (
                                         <button
                                             disabled={actionLoading}
                                             onClick={() => handleCancelOrder(selectedOrder.id)}
-                                            className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                                            className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                                         >
-                                            İptal Et
+                                            <Ban className="w-3.5 h-3.5" />
+                                            Siparişi İptal Et
                                         </button>
                                     )}
 
                                     <button
                                         disabled={actionLoading}
                                         onClick={() => handleDeleteOrder(selectedOrder.id)}
-                                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                                        className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                                     >
+                                        <Trash2 className="w-3.5 h-3.5" />
                                         Sil
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Cancellation Reason Alert */}
+                            {/* Cancellation / Edit Alerts */}
                             {selectedOrder.status === "CANCELLED" && (selectedOrder.cancelReason || selectedOrder.syncMessage) && (
-                                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 space-y-1">
-                                    <div className="font-bold flex items-center gap-1.5 text-rose-900">
-                                        <Ban className="w-4 h-4 text-rose-600" />
-                                        <span>İptal Nedeni & Açıklaması:</span>
+                                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-800 flex items-start gap-2.5">
+                                    <Ban className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <div className="font-bold text-rose-900">İptal Nedeni & Detayı:</div>
+                                        <p className="mt-0.5">{selectedOrder.cancelReason || selectedOrder.syncMessage}</p>
                                     </div>
-                                    <p className="font-medium pl-5">{selectedOrder.cancelReason || selectedOrder.syncMessage}</p>
                                 </div>
                             )}
 
-                            {/* Edited Order Alert */}
                             {selectedOrder.isEdited && (
-                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-800 space-y-1">
-                                    <div className="font-bold flex items-center gap-1.5 text-blue-900">
-                                        <Clock className="w-4 h-4 text-blue-600" />
-                                        <span>Düzenlenmiş Sipariş (Tekrar Onay Bekliyor)</span>
+                                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-800 flex items-start gap-2.5">
+                                    <Clock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <div className="font-bold text-blue-900">Düzenlenmiş Sipariş (Bayi Tarafından Tekrar Onaya Gönderildi)</div>
+                                        <p className="mt-0.5">
+                                            Bu siparişte bayi tarafından adet veya kalem değişikliği yapılmıştır.
+                                            {selectedOrder.lastEditedAt && ` Son Değişiklik Zamanı: ${new Date(selectedOrder.lastEditedAt).toLocaleString("tr-TR")}`}
+                                        </p>
                                     </div>
-                                    <p className="font-medium pl-5">
-                                        Bu sipariş bayi tarafından güncellenmiş ve onayınıza sunulmuştur.
-                                        {selectedOrder.lastEditedAt && ` Son Değişiklik: ${new Date(selectedOrder.lastEditedAt).toLocaleString("tr-TR")}`}
-                                    </p>
                                 </div>
                             )}
 
-                            {/* Info grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
-                                <div>
-                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Bayi / Siparişi Veren:</span>
-                                    <div className="font-bold text-slate-900 mt-0.5">{selectedOrder.cariName}</div>
-                                    <div className="text-slate-600 font-mono">{selectedOrder.userFullName || selectedOrder.userEmail}</div>
-                                </div>
-                                <div>
-                                    <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Sipariş Tarihi:</span>
-                                    <div className="font-medium text-slate-800 mt-0.5">
-                                        {new Date(selectedOrder.orderDate).toLocaleString("tr-TR")}
+                            {/* 3-Column Info Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                                {/* Card 1: Bayi & Müşteri */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                                    <div className="flex items-center gap-2 font-bold text-slate-900 text-xs pb-1 border-b border-slate-200/80">
+                                        <Building2 className="w-4 h-4 text-blue-600" />
+                                        Bayi / Müşteri Bilgileri
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="font-bold text-slate-900">{selectedOrder.cariName}</div>
+                                        <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
+                                            <span>Kod: <strong className="text-blue-600">{selectedOrder.cariCode}</strong></span>
+                                            {selectedOrder.cariTier && (
+                                                <span className="px-2 py-0.2 rounded font-black bg-blue-100 text-blue-800 text-[10px]">
+                                                    ⭐ {selectedOrder.cariTier} Grubu
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-[11px] text-slate-600 flex items-center gap-1 pt-1">
+                                            <User className="w-3 h-3 text-slate-400" />
+                                            <span>{selectedOrder.userFullName || selectedOrder.userEmail || "Yetkili"}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                {selectedOrder.notes && (
-                                    <div className="col-span-2 pt-2 border-t border-slate-200">
-                                        <span className="text-slate-500 font-semibold uppercase text-[10px] tracking-wider">Bayi Notu:</span>
-                                        <div className="text-slate-800 mt-0.5 italic">{selectedOrder.notes}</div>
+
+                                {/* Card 2: Sipariş & Kur */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                                    <div className="flex items-center gap-2 font-bold text-slate-900 text-xs pb-1 border-b border-slate-200/80">
+                                        <Calendar className="w-4 h-4 text-blue-600" />
+                                        Sipariş & Kur Bilgileri
                                     </div>
-                                )}
+                                    <div className="space-y-1">
+                                        <div className="text-slate-700">
+                                            Tarih: <strong className="text-slate-900">{new Date(selectedOrder.orderDate).toLocaleString("tr-TR")}</strong>
+                                        </div>
+                                        <div className="text-slate-700 flex items-center gap-1.5 font-mono">
+                                            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Sipariş Kuru: <strong>1 $ = {Number(selectedOrder.exchangeRate || 1).toFixed(4)} ₺</strong></span>
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 pt-1">
+                                            Toplam <strong>{selectedOrder.items?.length || 0}</strong> farklı kalem ürün
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card 3: Bayi Notu & Sevkiyat */}
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                                    <div className="flex items-center gap-2 font-bold text-slate-900 text-xs pb-1 border-b border-slate-200/80">
+                                        <FileText className="w-4 h-4 text-blue-600" />
+                                        Bayi Notu & Açıklaması
+                                    </div>
+                                    <div>
+                                        {selectedOrder.notes ? (
+                                            <p className="text-slate-800 italic bg-white p-2 rounded-xl border border-slate-200/80 text-[11px]">
+                                                &quot;{selectedOrder.notes}&quot;
+                                            </p>
+                                        ) : (
+                                            <p className="text-slate-400 italic text-[11px]">Özel bir sipariş notu iletilmedi.</p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Items Table */}
@@ -434,57 +500,104 @@ export default function DealerOrdersPage() {
                                     <Package className="w-4 h-4 text-blue-600" />
                                     Sipariş Kalemleri ({selectedOrder.items?.length || 0})
                                 </h4>
-                                <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
                                     <table className="w-full text-xs text-left">
-                                        <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200">
+                                        <thead className="bg-slate-50 text-slate-500 uppercase border-b border-slate-200 font-semibold">
                                             <tr>
-                                                <th className="px-4 py-3 font-semibold">Ürün</th>
-                                                <th className="px-4 py-3 font-semibold text-right">Liste Fiyatı</th>
-                                                <th className="px-4 py-3 font-semibold text-center">İskonto</th>
-                                                <th className="px-4 py-3 font-semibold text-right">Net Birim (TL)</th>
-                                                <th className="px-4 py-3 font-semibold text-center">Miktar</th>
-                                                <th className="px-4 py-3 font-semibold text-right">KDV</th>
-                                                <th className="px-4 py-3 font-semibold text-right">Toplam (TL)</th>
+                                                <th className="px-5 py-3.5">Ürün Kodu & Adı</th>
+                                                <th className="px-4 py-3.5 text-right">Liste Fiyatı</th>
+                                                <th className="px-4 py-3.5 text-center">İskonto Oranı</th>
+                                                <th className="px-4 py-3.5 text-right">Net Birim Fiyat</th>
+                                                <th className="px-4 py-3.5 text-center">Miktar</th>
+                                                <th className="px-4 py-3.5 text-right">KDV</th>
+                                                <th className="px-5 py-3.5 text-right">Toplam Tutar (TL)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {selectedOrder.items?.map((item: any, idx: number) => {
                                                 const origCurr = item.originalCurrency || "$";
                                                 const isForeign = origCurr && !origCurr.includes("TL") && !origCurr.includes("₺");
-                                                const origPrice = item.originalPrice || item.unitPrice;
-                                                const hasDiscount = (item.discountRate || 0) > 0;
+                                                const origPrice = Number(item.originalPrice || item.unitPrice || 0);
+                                                const rate = Number(item.exchangeRate || 1);
+                                                const hasDiscount = (Number(item.discountRate) || 0) > 0;
+                                                const discountedOrigPrice = hasDiscount ? origPrice * (100 - Number(item.discountRate)) / 100 : origPrice;
+
+                                                const lineTotalTL = Number(item.totalPrice || 0);
+                                                const listLineTotalTL = (origPrice * rate * Number(item.quantity || 1)) * (1 + Number(item.vatRate || 20) / 100);
+                                                const lineSavingsTL = Math.max(0, listLineTotalTL - lineTotalTL);
 
                                                 return (
-                                                    <tr key={idx} className="hover:bg-slate-50/50">
-                                                        <td className="px-4 py-3">
-                                                            <div className="font-mono font-bold text-blue-600 text-[11px]">{item.productCode}</div>
-                                                            <div className="font-semibold text-slate-900 truncate max-w-xs">{item.productName}</div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <div className={`font-mono font-bold ${hasDiscount ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                                                                {isForeign ? formatMoney(origPrice, origCurr) : formatMoney(origPrice, "TL")}
+                                                    <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                                                        {/* Product Info */}
+                                                        <td className="px-5 py-3.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono font-bold text-blue-600 text-xs">{item.productCode}</span>
+                                                                {item.logoItemLogicalRef && (
+                                                                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
+                                                                        Ref: {item.logoItemLogicalRef}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="font-semibold text-slate-900 text-xs truncate max-w-sm mt-0.5" title={item.productName}>
+                                                                {item.productName}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 text-center">
+
+                                                        {/* Original List Price */}
+                                                        <td className="px-4 py-3.5 text-right">
+                                                            <div className={`font-mono font-bold text-xs ${hasDiscount ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                                                                {isForeign ? formatMoney(origPrice, origCurr) : formatMoney(origPrice, "TL")}
+                                                            </div>
+                                                            {isForeign && (
+                                                                <div className="text-[10px] text-slate-400 font-mono">
+                                                                    ({formatMoney(origPrice * rate, "TL")})
+                                                                </div>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Discount Rate Badge */}
+                                                        <td className="px-4 py-3.5 text-center">
                                                             {hasDiscount ? (
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                                                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono shadow-2xs">
                                                                     -%{item.discountRate}
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-slate-300 font-mono">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-mono text-slate-900 font-bold">
-                                                            {formatMoney(item.unitPrice, "TL")}
+
+                                                        {/* Net Unit Price */}
+                                                        <td className="px-4 py-3.5 text-right">
+                                                            <div className="font-mono font-black text-slate-900 text-xs">
+                                                                {formatMoney(item.unitPrice, "TL")}
+                                                            </div>
+                                                            {isForeign && hasDiscount && (
+                                                                <div className="text-[10px] text-emerald-700 font-mono font-semibold">
+                                                                    {formatMoney(discountedOrigPrice, origCurr)}
+                                                                </div>
+                                                            )}
                                                         </td>
-                                                        <td className="px-4 py-3 text-center font-bold text-slate-900">
+
+                                                        {/* Quantity */}
+                                                        <td className="px-4 py-3.5 text-center font-bold text-slate-900 text-xs font-mono">
                                                             {item.quantity} Adet
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-mono text-slate-600">
-                                                            %{item.vatRate}
+
+                                                        {/* VAT Rate */}
+                                                        <td className="px-4 py-3.5 text-right font-mono text-slate-600">
+                                                            %{item.vatRate || 20}
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-mono font-bold text-blue-600 text-sm">
-                                                            {formatMoney(item.totalPrice, "TL")}
+
+                                                        {/* Total Price (TL) */}
+                                                        <td className="px-5 py-3.5 text-right">
+                                                            <div className="font-mono font-black text-blue-600 text-sm">
+                                                                {formatMoney(item.totalPrice, "TL")}
+                                                            </div>
+                                                            {hasDiscount && lineSavingsTL > 0 && (
+                                                                <div className="text-[10px] font-mono text-emerald-600 font-bold">
+                                                                    -{formatMoney(lineSavingsTL, "TL")}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 );
@@ -494,7 +607,7 @@ export default function DealerOrdersPage() {
                                 </div>
                             </div>
 
-                            {/* Financial Summary */}
+                            {/* Financial Summary & Integration Box */}
                             {(() => {
                                 const listSubTotal = (selectedOrder.items || []).reduce((acc: number, it: any) => {
                                     const orig = Number(it.originalPrice || it.unitPrice || 0);
@@ -505,40 +618,75 @@ export default function DealerOrdersPage() {
                                 const discountSavings = Math.max(0, listSubTotal - Number(selectedOrder.totalAmount || 0));
 
                                 return (
-                                    <div className="flex justify-end pt-2">
-                                        <div className="w-full sm:w-80 space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-2">
+                                        {/* Left Side: ERP & System Details */}
+                                        <div className="md:col-span-7 space-y-3">
+                                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                                                <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <Layers className="w-4 h-4 text-blue-600" />
+                                                    Logo Tiger / Go 3 ERP Aktarım Bilgileri
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                                                    <div className="text-slate-600">
+                                                        Logo Sipariş No: <strong className="text-slate-900 font-mono">{selectedOrder.logoOrderNumber || "Henüz Aktarılmadı"}</strong>
+                                                    </div>
+                                                    <div className="text-slate-600">
+                                                        Logo Logical Ref: <strong className="text-slate-900 font-mono">{selectedOrder.logoOrderLogicalRef || "-"}</strong>
+                                                    </div>
+                                                    <div className="text-slate-600">
+                                                        Cari Logical Ref: <strong className="text-slate-900 font-mono">{selectedOrder.cariLogoLogicalRef || "-"}</strong>
+                                                    </div>
+                                                    <div className="text-slate-600">
+                                                        Aktarım Durumu: <strong className="text-blue-700">{selectedOrder.syncStatus || "Bekliyor"}</strong>
+                                                    </div>
+                                                </div>
+                                                {selectedOrder.syncedAt && (
+                                                    <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200">
+                                                        Son Aktarım Zamanı: {new Date(selectedOrder.syncedAt).toLocaleString("tr-TR")}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Right Side: Detailed Financial Totals */}
+                                        <div className="md:col-span-5 bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-2.5 text-xs">
                                             {selectedOrder.originalTotalAmount && selectedOrder.originalCurrency && !selectedOrder.originalCurrency.includes("TL") && (
-                                                <div className="flex justify-between text-blue-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-200 font-bold">
+                                                <div className="flex justify-between text-blue-900 bg-blue-50/90 p-2.5 rounded-xl border border-blue-200 font-bold">
                                                     <span>Orijinal Döviz Tutarı:</span>
                                                     <span className="font-mono">{formatMoney(selectedOrder.originalTotalAmount, selectedOrder.originalCurrency)}</span>
                                                 </div>
                                             )}
+
                                             {discountSavings > 0 && (
                                                 <div className="flex justify-between text-slate-500">
-                                                    <span>Liste Toplamı:</span>
+                                                    <span>Liste Fiyatları Toplamı:</span>
                                                     <span className="font-mono font-semibold line-through">{formatMoney(listSubTotal, "TL")}</span>
                                                 </div>
                                             )}
+
                                             {discountSavings > 0 && (
-                                                <div className="flex justify-between text-emerald-700 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200 font-bold">
+                                                <div className="flex justify-between text-emerald-800 bg-emerald-50/80 p-2 rounded-xl border border-emerald-200 font-bold">
                                                     <span className="flex items-center gap-1">
                                                         <Tag className="w-3.5 h-3.5" />
-                                                        İskonto İndirimi:
+                                                        Toplam İskonto Kazancı:
                                                     </span>
                                                     <span className="font-mono">-{formatMoney(discountSavings, "TL")}</span>
                                                 </div>
                                             )}
-                                            <div className="flex justify-between text-slate-600">
+
+                                            <div className="flex justify-between text-slate-600 pt-1">
                                                 <span>Net Ara Toplam (TL):</span>
                                                 <span className="font-mono font-bold text-slate-800">{formatMoney(selectedOrder.totalAmount, "TL")}</span>
                                             </div>
+
                                             <div className="flex justify-between text-slate-600">
                                                 <span>Toplam KDV (TL):</span>
                                                 <span className="font-mono font-medium text-slate-700">{formatMoney(selectedOrder.totalVat, "TL")}</span>
                                             </div>
-                                            <div className="flex justify-between text-slate-900 font-bold text-sm pt-2.5 border-t border-slate-200">
-                                                <span>Sipariş Tutarı (TL):</span>
-                                                <span className="font-mono text-blue-600 font-black text-lg">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
+
+                                            <div className="flex justify-between text-slate-900 font-bold text-sm pt-3 border-t border-slate-200 items-baseline">
+                                                <span>Genel Sipariş Tutarı:</span>
+                                                <span className="font-mono text-blue-600 font-black text-xl">{formatMoney(selectedOrder.grandTotal, "TL")}</span>
                                             </div>
                                         </div>
                                     </div>
