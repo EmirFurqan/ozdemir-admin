@@ -97,8 +97,20 @@ export default function ProductGroupEditor({
     const [brandId, setBrandId] = useState<string>("");
     const [categoryId, setCategoryId] = useState<string>("");
 
-    // Tier Discounts (S, A, B, P)
+    // Tier Discounts (S, A, B, P) - 3'lü Kademeli İskonto Desteği
     const [tierDiscounts, setTierDiscounts] = useState<{ S: number; A: number; B: number; P: number }>({
+        S: 0,
+        A: 0,
+        B: 0,
+        P: 0
+    });
+    const [tierDiscounts2, setTierDiscounts2] = useState<{ S: number; A: number; B: number; P: number }>({
+        S: 0,
+        A: 0,
+        B: 0,
+        P: 0
+    });
+    const [tierDiscounts3, setTierDiscounts3] = useState<{ S: number; A: number; B: number; P: number }>({
         S: 0,
         A: 0,
         B: 0,
@@ -330,13 +342,20 @@ export default function ProductGroupEditor({
             fetchGroupTierDiscountsAction(groupId)
                 .then((discounts) => {
                     if (Array.isArray(discounts) && discounts.length > 0) {
-                        const map: any = { S: 0, A: 0, B: 0, P: 0 };
+                        const map1: any = { S: 0, A: 0, B: 0, P: 0 };
+                        const map2: any = { S: 0, A: 0, B: 0, P: 0 };
+                        const map3: any = { S: 0, A: 0, B: 0, P: 0 };
                         discounts.forEach((d: any) => {
-                            if (d.tier && map[d.tier.toUpperCase()] !== undefined) {
-                                map[d.tier.toUpperCase()] = Number(d.discountPercent || 0);
+                            const t = d.tier ? d.tier.toUpperCase() : "";
+                            if (t && map1[t] !== undefined) {
+                                map1[t] = Number(d.discountPercent || 0);
+                                map2[t] = Number(d.discountPercent2 || 0);
+                                map3[t] = Number(d.discountPercent3 || 0);
                             }
                         });
-                        setTierDiscounts(map);
+                        setTierDiscounts(map1);
+                        setTierDiscounts2(map2);
+                        setTierDiscounts3(map3);
                     }
                 })
                 .catch((err) => console.error("Tier discounts loading error:", err));
@@ -679,7 +698,7 @@ export default function ProductGroupEditor({
                 const targetGroupId = groupId > 0 ? groupId : res.group?.id;
                 if (targetGroupId) {
                     try {
-                        await saveGroupTierDiscountsAction(targetGroupId, tierDiscounts, true);
+                        await saveGroupTierDiscountsAction(targetGroupId, tierDiscounts, tierDiscounts2, tierDiscounts3, true);
                     } catch (err) {
                         console.error("Tier discounts save warning:", err);
                     }
@@ -1192,91 +1211,287 @@ export default function ProductGroupEditor({
                 </div>
 
                 <p className="text-xs text-slate-500 leading-relaxed">
-                    Bu ürün grubuna dahil olan tüm ürünler için müşteri grubu bazlı iskonto yüzdelerini (%) belirleyin.
-                    Kaydettiğinizde gruptaki tüm alt varyantlara da otomatik tanımlanır ve bayiler sepetlerinde bu oranlara göre indirimli fiyatları görür.
+                    Bu ürün grubuna dahil olan tüm ürünler için müşteri grubu bazlı <strong>3 kademeliye kadar iskonto oranlarını (örn: 40 + 5)</strong> belirleyin.
+                    Kaydettiğinizde gruptaki tüm alt varyantlara otomatik yansıtılır ve bayiler sepetlerinde bu oranlara göre net fiyatları görür.
                 </p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                     {/* S Grubu */}
-                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-amber-900">⭐ S Grubu</span>
-                            <span className="text-[10px] font-bold text-amber-700 bg-white px-2 py-0.5 rounded border border-amber-200">En Avantajlı</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-500">%</span>
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.5"
-                                value={tierDiscounts.S !== undefined ? tierDiscounts.S : ""}
-                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, S: parseFloat(e.target.value) || 0 }))}
-                                className="w-full bg-white border border-amber-300 rounded-lg px-3 py-1.5 text-sm font-black text-amber-950 focus:ring-2 focus:ring-amber-400"
-                                placeholder="Örn: 40"
-                            />
-                        </div>
-                    </div>
+                    {(() => {
+                        const s1 = tierDiscounts.S || 0;
+                        const s2 = tierDiscounts2.S || 0;
+                        const s3 = tierDiscounts3.S || 0;
+                        const eff = (1 - ((100 - s1) / 100) * ((100 - s2) / 100) * ((100 - s3) / 100)) * 100;
+                        const formula = [s1, s2, s3].filter(v => v > 0).join(" + ");
+
+                        return (
+                            <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50/60 space-y-3 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-amber-950 flex items-center gap-1">⭐ S Grubu Bayi</span>
+                                    <span className="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded-full border border-amber-200 shadow-2xs">En Avantajlı</span>
+                                </div>
+                                
+                                <div className="space-y-1.5">
+                                    <div className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">Kademeli İskontolar (%)</div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">1. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts.S !== undefined && tierDiscounts.S !== 0 ? tierDiscounts.S : ""}
+                                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, S: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs font-black text-amber-950 focus:ring-2 focus:ring-amber-400 text-center"
+                                                placeholder="40"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">2. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts2.S !== undefined && tierDiscounts2.S !== 0 ? tierDiscounts2.S : ""}
+                                                onChange={(e) => setTierDiscounts2(prev => ({ ...prev, S: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs font-bold text-amber-950 focus:ring-2 focus:ring-amber-400 text-center"
+                                                placeholder="5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">3. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts3.S !== undefined && tierDiscounts3.S !== 0 ? tierDiscounts3.S : ""}
+                                                onChange={(e) => setTierDiscounts3(prev => ({ ...prev, S: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs font-bold text-amber-950 focus:ring-2 focus:ring-amber-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-amber-200/80 flex items-center justify-between text-[11px]">
+                                    <span className="text-amber-800 font-medium">Uygulanan:</span>
+                                    <span className="font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                                        {formula ? `-%${formula} (%${eff.toFixed(2)})` : "%0"}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* A Grubu */}
-                    <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-blue-900">💎 A Grubu</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-500">%</span>
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.5"
-                                value={tierDiscounts.A !== undefined ? tierDiscounts.A : ""}
-                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, A: parseFloat(e.target.value) || 0 }))}
-                                className="w-full bg-white border border-blue-300 rounded-lg px-3 py-1.5 text-sm font-bold text-blue-950 focus:ring-2 focus:ring-blue-400"
-                                placeholder="Örn: 35"
-                            />
-                        </div>
-                    </div>
+                    {(() => {
+                        const a1 = tierDiscounts.A || 0;
+                        const a2 = tierDiscounts2.A || 0;
+                        const a3 = tierDiscounts3.A || 0;
+                        const eff = (1 - ((100 - a1) / 100) * ((100 - a2) / 100) * ((100 - a3) / 100)) * 100;
+                        const formula = [a1, a2, a3].filter(v => v > 0).join(" + ");
+
+                        return (
+                            <div className="p-4 rounded-2xl border border-blue-300 bg-blue-50/60 space-y-3 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-blue-950 flex items-center gap-1">💎 A Grubu Bayi</span>
+                                </div>
+                                
+                                <div className="space-y-1.5">
+                                    <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider">Kademeli İskontolar (%)</div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">1. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts.A !== undefined && tierDiscounts.A !== 0 ? tierDiscounts.A : ""}
+                                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, A: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-black text-blue-950 focus:ring-2 focus:ring-blue-400 text-center"
+                                                placeholder="35"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">2. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts2.A !== undefined && tierDiscounts2.A !== 0 ? tierDiscounts2.A : ""}
+                                                onChange={(e) => setTierDiscounts2(prev => ({ ...prev, A: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-blue-950 focus:ring-2 focus:ring-blue-400 text-center"
+                                                placeholder="5"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">3. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts3.A !== undefined && tierDiscounts3.A !== 0 ? tierDiscounts3.A : ""}
+                                                onChange={(e) => setTierDiscounts3(prev => ({ ...prev, A: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-bold text-blue-950 focus:ring-2 focus:ring-blue-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-blue-200/80 flex items-center justify-between text-[11px]">
+                                    <span className="text-blue-800 font-medium">Uygulanan:</span>
+                                    <span className="font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                                        {formula ? `-%${formula} (%${eff.toFixed(2)})` : "%0"}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* B Grubu */}
-                    <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/50 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-indigo-900">🔷 B Grubu</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-500">%</span>
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.5"
-                                value={tierDiscounts.B !== undefined ? tierDiscounts.B : ""}
-                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, B: parseFloat(e.target.value) || 0 }))}
-                                className="w-full bg-white border border-indigo-300 rounded-lg px-3 py-1.5 text-sm font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-400"
-                                placeholder="Örn: 30"
-                            />
-                        </div>
-                    </div>
+                    {(() => {
+                        const b1 = tierDiscounts.B || 0;
+                        const b2 = tierDiscounts2.B || 0;
+                        const b3 = tierDiscounts3.B || 0;
+                        const eff = (1 - ((100 - b1) / 100) * ((100 - b2) / 100) * ((100 - b3) / 100)) * 100;
+                        const formula = [b1, b2, b3].filter(v => v > 0).join(" + ");
+
+                        return (
+                            <div className="p-4 rounded-2xl border border-indigo-300 bg-indigo-50/60 space-y-3 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-indigo-950 flex items-center gap-1">🔷 B Grubu Bayi</span>
+                                </div>
+                                
+                                <div className="space-y-1.5">
+                                    <div className="text-[10px] font-bold text-indigo-900 uppercase tracking-wider">Kademeli İskontolar (%)</div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">1. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts.B !== undefined && tierDiscounts.B !== 0 ? tierDiscounts.B : ""}
+                                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, B: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-indigo-300 rounded-lg px-2 py-1.5 text-xs font-black text-indigo-950 focus:ring-2 focus:ring-indigo-400 text-center"
+                                                placeholder="30"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">2. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts2.B !== undefined && tierDiscounts2.B !== 0 ? tierDiscounts2.B : ""}
+                                                onChange={(e) => setTierDiscounts2(prev => ({ ...prev, B: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-indigo-300 rounded-lg px-2 py-1.5 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">3. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts3.B !== undefined && tierDiscounts3.B !== 0 ? tierDiscounts3.B : ""}
+                                                onChange={(e) => setTierDiscounts3(prev => ({ ...prev, B: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-indigo-300 rounded-lg px-2 py-1.5 text-xs font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-indigo-200/80 flex items-center justify-between text-[11px]">
+                                    <span className="text-indigo-800 font-medium">Uygulanan:</span>
+                                    <span className="font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                                        {formula ? `-%${formula} (%${eff.toFixed(2)})` : "%0"}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* P Grubu */}
-                    <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-purple-900">🔶 P Grubu</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-sm font-bold text-slate-500">%</span>
-                            <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.5"
-                                value={tierDiscounts.P !== undefined ? tierDiscounts.P : ""}
-                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, P: parseFloat(e.target.value) || 0 }))}
-                                className="w-full bg-white border border-purple-300 rounded-lg px-3 py-1.5 text-sm font-bold text-purple-950 focus:ring-2 focus:ring-purple-400"
-                                placeholder="Örn: 20"
-                            />
-                        </div>
-                    </div>
+                    {(() => {
+                        const p1 = tierDiscounts.P || 0;
+                        const p2 = tierDiscounts2.P || 0;
+                        const p3 = tierDiscounts3.P || 0;
+                        const eff = (1 - ((100 - p1) / 100) * ((100 - p2) / 100) * ((100 - p3) / 100)) * 100;
+                        const formula = [p1, p2, p3].filter(v => v > 0).join(" + ");
+
+                        return (
+                            <div className="p-4 rounded-2xl border border-purple-300 bg-purple-50/60 space-y-3 shadow-2xs">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-purple-950 flex items-center gap-1">🔶 P Grubu Bayi</span>
+                                </div>
+                                
+                                <div className="space-y-1.5">
+                                    <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">Kademeli İskontolar (%)</div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">1. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts.P !== undefined && tierDiscounts.P !== 0 ? tierDiscounts.P : ""}
+                                                onChange={(e) => setTierDiscounts(prev => ({ ...prev, P: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs font-black text-purple-950 focus:ring-2 focus:ring-purple-400 text-center"
+                                                placeholder="20"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">2. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts2.P !== undefined && tierDiscounts2.P !== 0 ? tierDiscounts2.P : ""}
+                                                onChange={(e) => setTierDiscounts2(prev => ({ ...prev, P: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] font-bold text-slate-500 block mb-0.5">3. İskonto</label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                step="0.5"
+                                                value={tierDiscounts3.P !== undefined && tierDiscounts3.P !== 0 ? tierDiscounts3.P : ""}
+                                                onChange={(e) => setTierDiscounts3(prev => ({ ...prev, P: parseFloat(e.target.value) || 0 }))}
+                                                className="w-full bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs font-bold text-purple-950 focus:ring-2 focus:ring-purple-400 text-center"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-1.5 border-t border-purple-200/80 flex items-center justify-between text-[11px]">
+                                    <span className="text-purple-800 font-medium">Uygulanan:</span>
+                                    <span className="font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                                        {formula ? `-%${formula} (%${eff.toFixed(2)})` : "%0"}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 

@@ -559,7 +559,7 @@ export default function DealerOrdersPage() {
                                                         <td className="px-4 py-3.5 text-center">
                                                             {hasDiscount ? (
                                                                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono shadow-2xs">
-                                                                    -%{item.discountRate}
+                                                                    -%{item.discountFormula || item.discountRate}
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-slate-300 font-mono">-</span>

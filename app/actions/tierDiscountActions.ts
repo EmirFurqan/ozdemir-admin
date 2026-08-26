@@ -13,13 +13,21 @@ export async function fetchGroupTierDiscountsAction(groupId: number) {
     }
 }
 
-export async function saveGroupTierDiscountsAction(groupId: number, tierDiscounts: Record<string, number>, applyToProducts: boolean = true) {
+export async function saveGroupTierDiscountsAction(
+    groupId: number, 
+    tierDiscounts: Record<string, number>, 
+    tierDiscounts2?: Record<string, number>, 
+    tierDiscounts3?: Record<string, number>, 
+    applyToProducts: boolean = true
+) {
     try {
         const res = await fetchAPI("/admin/tier-discounts/group", {
             method: "POST",
             body: JSON.stringify({
                 productGroupId: groupId,
                 tierDiscounts,
+                tierDiscounts2,
+                tierDiscounts3,
                 applyToProducts
             })
         });
