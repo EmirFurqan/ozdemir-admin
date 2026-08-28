@@ -119,6 +119,8 @@ export default function ProductSelectModal({
                 search: debouncedSearch,
                 brandId: brandFilter,
                 categoryId: categoryFilter,
+                ungroupedOnly: true,
+                groupId: currentGroupId > 0 ? currentGroupId : undefined,
             });
 
             setSearchResults(res.content || []);
@@ -130,7 +132,7 @@ export default function ProductSelectModal({
         } finally {
             setLoading(false);
         }
-    }, [isOpen, page, pageSize, debouncedSearch, brandFilter, categoryFilter]);
+    }, [isOpen, page, pageSize, debouncedSearch, brandFilter, categoryFilter, currentGroupId]);
 
     useEffect(() => {
         fetchServerProducts();
@@ -237,8 +239,14 @@ export default function ProductSelectModal({
 
     // Unselected search results (rendered below pinned selected products)
     const unselectedSearchResults = useMemo(() => {
-        return searchResults.filter((p) => !selectedMap.has(p.id || p.productId));
-    }, [searchResults, selectedMap]);
+        return searchResults.filter((p) => {
+            const id = p.id || p.productId;
+            if (selectedMap.has(id)) return false;
+            // Safeguard: Do not show products already belonging to another group
+            if (p.groupCode && (!currentGroupCode || p.groupCode !== currentGroupCode)) return false;
+            return true;
+        });
+    }, [searchResults, selectedMap, currentGroupCode]);
 
     if (!isOpen) return null;
 

@@ -10,12 +10,16 @@ export async function searchProductsForModal({
     search = "",
     brandId,
     categoryId,
+    ungroupedOnly = true,
+    groupId,
 }: {
     page?: number;
     size?: number;
     search?: string;
     brandId?: string | number;
     categoryId?: string | number;
+    ungroupedOnly?: boolean;
+    groupId?: number;
 } = {}) {
     try {
         const query = new URLSearchParams({
@@ -23,8 +27,10 @@ export async function searchProductsForModal({
             size: size.toString(),
             grouped: "false",
             active: "all",
-            sort: "name_asc"
+            sort: "name_asc",
+            ungroupedOnly: ungroupedOnly ? "true" : "false"
         });
+        if (groupId && groupId > 0) query.append("excludeOtherGroupsForId", groupId.toString());
         if (search && search.trim()) query.append("search", search.trim());
         if (brandId && brandId !== "all") query.append("brandId", brandId.toString());
         if (categoryId && categoryId !== "all") query.append("categoryId", categoryId.toString());
@@ -73,15 +79,17 @@ export async function searchProductsForModal({
     }
 }
 
-export async function getProductsForSelect(search?: string) {
+export async function getProductsForSelect(search?: string, groupId?: number) {
     try {
         const query = new URLSearchParams({
             page: "0",
-            size: "200",
+            size: "500",
             grouped: "false",
             active: "all",
-            sort: "name_asc"
+            sort: "name_asc",
+            ungroupedOnly: "true"
         });
+        if (groupId && groupId > 0) query.append("excludeOtherGroupsForId", groupId.toString());
         if (search && search.trim()) query.append("search", search.trim());
 
         const res = await fetchAPI(`/products?${query.toString()}`);

@@ -326,7 +326,7 @@ export default function ProductGroupEditor({
     useEffect(() => {
         if (!selectProducts || selectProducts.length === 0) {
             setIsLoadingSelectProducts(true);
-            getProductsForSelect()
+            getProductsForSelect(undefined, groupId > 0 ? groupId : undefined)
                 .then((data) => {
                     setSelectProducts(data || []);
                 })
@@ -334,7 +334,7 @@ export default function ProductGroupEditor({
                     setIsLoadingSelectProducts(false);
                 });
         }
-    }, []);
+    }, [groupId]);
 
     // Load Tier Discounts for this group
     useEffect(() => {
@@ -366,12 +366,16 @@ export default function ProductGroupEditor({
     const availableProducts = useMemo(() => {
         if (!selectProducts) return [];
         return selectProducts
-            .filter((p) => !variants.some((v) => v.productId === p.id))
+            .filter((p) => {
+                if (variants.some((v) => v.productId === p.id)) return false;
+                if (p.groupCode && (!group || p.groupCode !== group.groupCode)) return false;
+                return true;
+            })
             .map((p) => ({
                 value: p.id.toString(),
                 label: `${p.code ? p.code + ' - ' : ''}${p.name}`,
             }));
-    }, [selectProducts, variants]);
+    }, [selectProducts, variants, group]);
 
     const handleAddSelectedProduct = () => {
         if (!selectedProductId) return;
