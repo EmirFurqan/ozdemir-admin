@@ -5,7 +5,7 @@ import { useFormStatus } from 'react-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { login } from '@/app/actions/auth'
-import Image from 'next/image'
+import { OzdemirLogo } from '@/components/Logo'
 import {
     ShieldCheck,
     ArrowRight,
@@ -16,8 +16,7 @@ import {
     CheckCircle2,
     AlertCircle,
     Server,
-    Layers,
-    ShieldAlert
+    Layers
 } from 'lucide-react'
 
 function SubmitButton() {
@@ -57,14 +56,7 @@ export default function Login() {
 
                 {/* Top Branding */}
                 <div className="relative z-10 flex items-center gap-3">
-                    <Image
-                        src="/OzdemirLogoBeyaz.svg"
-                        alt="Özdemir Makina"
-                        width={190}
-                        height={40}
-                        className="h-8 w-auto object-contain"
-                        priority
-                    />
+                    <OzdemirLogo className="h-8 w-auto max-w-[220px]" />
                     <span className="px-2.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase rounded-md bg-red-500/10 text-red-400 border border-red-500/20">
                         Admin Portal
                     </span>
@@ -116,14 +108,7 @@ export default function Login() {
                 <div className="w-full max-w-md space-y-8 relative z-10">
                     {/* Mobile/Tablet Logo View */}
                     <div className="lg:hidden flex flex-col items-center text-center space-y-3 mb-2">
-                        <Image
-                            src="/OzdemirLogoBeyaz.svg"
-                            alt="Özdemir Makina"
-                            width={210}
-                            height={44}
-                            className="h-8 w-auto object-contain"
-                            priority
-                        />
+                        <OzdemirLogo className="h-8 w-auto max-w-[220px]" />
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold">
                             <ShieldCheck className="w-3.5 h-3.5" /> Yönetici Yönetim Paneli
                         </div>
