@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveBanner } from "@/app/actions/banner";
-import { Loader2, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, Image as ImageIcon, Sparkles, Eye } from "lucide-react";
 import Image from "next/image";
 import { Banner } from "@/app/services/bannerService";
 
@@ -26,6 +26,8 @@ export default function BannerForm({ banner, onSuccess, onCancel }: BannerFormPr
     const [linkUrl, setLinkUrl] = useState(banner?.linkUrl || "");
     const [displayOrder, setDisplayOrder] = useState(banner?.displayOrder?.toString() || "0");
     const [isActive, setIsActive] = useState(banner?.isActive ?? banner?.active ?? true);
+    const [hasAnimation, setHasAnimation] = useState(banner?.hasAnimation ?? true);
+    const [hasDarkOverlay, setHasDarkOverlay] = useState(banner?.hasDarkOverlay ?? true);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.[0]) return;
@@ -69,6 +71,8 @@ export default function BannerForm({ banner, onSuccess, onCancel }: BannerFormPr
         formData.append("imageUrl", imageUrl);
         formData.append("displayOrder", displayOrder);
         formData.append("isActive", isActive ? "true" : "false");
+        formData.append("hasAnimation", hasAnimation ? "true" : "false");
+        formData.append("hasDarkOverlay", hasDarkOverlay ? "true" : "false");
 
         try {
             const result = await saveBanner(null, formData);
@@ -139,14 +143,24 @@ export default function BannerForm({ banner, onSuccess, onCancel }: BannerFormPr
 
                 {/* Live Preview */}
                 <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-3">Canlı Önizleme</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-slate-900">Canlı Önizleme</h3>
+                        <div className="flex items-center gap-1.5">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${hasAnimation ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                                {hasAnimation ? '⚡ Animasyonlu' : 'Sabit'}
+                            </span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${hasDarkOverlay ? 'bg-zinc-800 text-zinc-100' : 'bg-amber-100 text-amber-800'}`}>
+                                {hasDarkOverlay ? 'Karartma Açık' : 'Karartma Yok'}
+                            </span>
+                        </div>
+                    </div>
                     <div className="relative w-full aspect-[19/9] rounded-lg overflow-hidden bg-slate-900 shadow-inner group">
                         {imageUrl ? (
                             <Image
                                 src={getFullImageUrl(imageUrl)}
                                 alt="Preview"
                                 fill
-                                className="object-cover opacity-80"
+                                className={`object-cover transition-all duration-700 ${hasAnimation ? 'group-hover:scale-105' : ''} ${hasDarkOverlay ? 'opacity-85' : 'opacity-100'}`}
                             />
                         ) : (
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400">
@@ -155,18 +169,20 @@ export default function BannerForm({ banner, onSuccess, onCancel }: BannerFormPr
                         )}
 
                         {/* Overlay Gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        {hasDarkOverlay && (
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-300 pointer-events-none" />
+                        )}
 
                         {/* Content */}
                         <div className="absolute bottom-3 left-6 p-6 w-full text-white">
-                            <h4 className="text-[20px] font-bold mb-2 max-w-[55%] line-clamp-2 leading-tight">
+                            <h4 className="text-[20px] font-bold mb-2 max-w-[55%] line-clamp-2 leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                                 {title || "Banner Başlığı"}
                             </h4>
-                            <p className="text-[6px] text-slate-200  mb-2 max-w-[55%] opacity-90">
+                            <p className="text-[6px] text-slate-200 mb-2 max-w-[55%] opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                                 {description || ""}
                             </p>
                             {linkUrl && (
-                                <span className="inline-flex items-center text-[8px] font-semibold bg-white text-slate-900 px-2 py-1 rounded-full">
+                                <span className="inline-flex items-center text-[8px] font-semibold bg-white text-slate-900 px-2 py-1 rounded-full shadow">
                                     Daha Fazla
                                 </span>
                             )}
@@ -234,21 +250,72 @@ export default function BannerForm({ banner, onSuccess, onCancel }: BannerFormPr
                         />
                     </div>
 
-                    {/* Active Status Toggle as a card-like element */}
-                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-slate-900">Aktif Durum</span>
-                            <span className="text-xs text-slate-500">Bu banner sitede görüntülensin mi?</span>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={isActive}
-                                onChange={(e) => setIsActive(e.target.checked)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    {/* Banner Display & Animation Settings */}
+                    <div className="space-y-3 pt-2">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                            Görünüm ve Animasyon Ayarları
                         </label>
+
+                        {/* Animation Toggle */}
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg transition-colors ${hasAnimation ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
+                                    <Sparkles className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-slate-900">Animasyon Aktif</span>
+                                    <span className="text-xs text-slate-500">Slider geçişlerinde görsel yaklaştırma ve metin animasyonları çalışsın</span>
+                                </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={hasAnimation}
+                                    onChange={(e) => setHasAnimation(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        {/* Dark Overlay / Filigran Toggle */}
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg transition-colors ${hasDarkOverlay ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-500'}`}>
+                                    <Eye className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-medium text-slate-900">Siyah Karartma / Filigran</span>
+                                    <span className="text-xs text-slate-500">Yazıların rahat okunması için görsel üzerine koyu degrade katman uygular</span>
+                                </div>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={hasDarkOverlay}
+                                    onChange={(e) => setHasDarkOverlay(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-zinc-900"></div>
+                            </label>
+                        </div>
+
+                        {/* Active Status Toggle */}
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-medium text-slate-900">Yayın Durumu (Aktif)</span>
+                                <span className="text-xs text-slate-500">Bu banner anasayfada yayında olsun</span>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                <input
+                                    type="checkbox"
+                                    checked={isActive}
+                                    onChange={(e) => setIsActive(e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                        </div>
                     </div>
 
                     {error && (

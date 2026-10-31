@@ -9,6 +9,8 @@ export interface Banner {
     displayOrder: number;
     isActive: boolean;
     active?: boolean;
+    hasAnimation?: boolean;
+    hasDarkOverlay?: boolean;
 }
 
 export const bannerService = {

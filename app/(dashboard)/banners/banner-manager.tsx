@@ -2,7 +2,7 @@
 
 import { Banner } from "@/app/services/bannerService";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Sparkles, Eye, EyeOff } from "lucide-react";
 import DeleteBannerButton from "./delete-banner-button";
 import Link from "next/link";
 import Image from "next/image";
@@ -51,6 +51,25 @@ export default function BannerManager({ initialBanners }: { initialBanners: Bann
                     <div className="text-xs text-slate-500 truncate max-w-[300px]">{banner.description}</div>
                 </div>
             )
+        },
+        {
+            header: "Görünüm & Efekt",
+            cell: (banner) => {
+                const hasAnim = banner.hasAnimation !== false;
+                const hasDark = banner.hasDarkOverlay !== false;
+                return (
+                    <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium w-fit ${hasAnim ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/60' : 'bg-slate-100 text-slate-500'}`}>
+                            <Sparkles className="w-3 h-3" />
+                            {hasAnim ? 'Animasyon Açık' : 'Animasyon Kapalı'}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium w-fit ${hasDark ? 'bg-zinc-800 text-zinc-100' : 'bg-amber-50 text-amber-800 border border-amber-200/60'}`}>
+                            {hasDark ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                            {hasDark ? 'Karartma Açık' : 'Karartma Kapalı'}
+                        </span>
+                    </div>
+                );
+            }
         },
         {
             header: "Durum",

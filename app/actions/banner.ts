@@ -11,6 +11,8 @@ export async function saveBanner(prevState: any, formData: FormData) {
     const imageUrl = formData.get("imageUrl") as string;
     const displayOrder = formData.get("displayOrder") as string;
     const isActive = formData.get("isActive") === "true";
+    const hasAnimation = formData.get("hasAnimation") === "true";
+    const hasDarkOverlay = formData.get("hasDarkOverlay") === "true";
 
     const bannerData = {
         title,
@@ -19,7 +21,9 @@ export async function saveBanner(prevState: any, formData: FormData) {
         imageUrl,
         displayOrder: parseInt(displayOrder) || 0,
         isActive,
-        active: isActive
+        active: isActive,
+        hasAnimation,
+        hasDarkOverlay
     };
 
     try {
