@@ -8,7 +8,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Combobox } from "@/components/ui/combobox";
-import { bulkAssignGroupAction, deleteProductGroupAction } from "@/app/actions/productGroup";
+import { bulkAssignGroupAction, deleteProductGroupAction, syncGroupDocumentsAction } from "@/app/actions/productGroup";
 import { getProductsForSelect } from "@/app/actions/product";
 import { fetchGroupTierDiscountsAction, saveGroupTierDiscountsAction } from "@/app/actions/tierDiscountActions";
 import TableImage from "@/app/components/TableImage";
@@ -57,6 +57,13 @@ interface GroupFeature {
     displayOrder: number;
 }
 
+interface GroupDocument {
+    id?: number;
+    name: string;
+    url: string;
+    type: string;
+}
+
 interface VariantProduct {
     productId: number;
     name: string;
@@ -69,6 +76,7 @@ interface VariantProduct {
     active?: boolean;
     images?: GroupImage[];
     features?: GroupFeature[];
+    documents?: GroupDocument[];
 }
 
 export default function ProductGroupEditor({
@@ -120,7 +128,9 @@ export default function ProductGroupEditor({
     // Shared assets
     const [images, setImages] = useState<GroupImage[]>([]);
     const [features, setFeatures] = useState<GroupFeature[]>([]);
+    const [documents, setDocuments] = useState<GroupDocument[]>([]);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isUploadingDoc, setIsUploadingDoc] = useState(false);
     const [isSharedImageFinderOpen, setIsSharedImageFinderOpen] = useState(false);
 
     // Individual images mode
@@ -132,6 +142,11 @@ export default function ProductGroupEditor({
     // Individual features mode
     const [individualFeatures, setIndividualFeatures] = useState(false);
     const [expandedVariantFeatures, setExpandedVariantFeatures] = useState<number | null>(null);
+
+    // Individual documents mode
+    const [individualDocuments, setIndividualDocuments] = useState(false);
+    const [expandedVariantDocuments, setExpandedVariantDocuments] = useState<number | null>(null);
+    const [isUploadingVariantDoc, setIsUploadingVariantDoc] = useState<number | null>(null);
 
     // Product variants
     const [variants, setVariants] = useState<VariantProduct[]>([]);
@@ -243,6 +258,14 @@ export default function ProductGroupEditor({
                 setIndividualFeatures(true);
             }
 
+            const distinctDocs = new Set(
+                products.map((p) => (p.documents || []).map((d: any) => d.url).sort().join(",")).filter(Boolean)
+            );
+            const isIndividualDocsMode = group?.individualDocuments === true || (products.length > 1 && distinctDocs.size > 1);
+            if (isIndividualDocsMode) {
+                setIndividualDocuments(true);
+            }
+
             setVariants(
                 products.map((p) => ({
                     productId: p.id,
@@ -268,6 +291,14 @@ export default function ProductGroupEditor({
                             displayOrder: f.displayOrder || 0,
                         }))
                         : [],
+                    documents: p.documents && p.documents.length > 0
+                        ? p.documents.map((d: any) => ({
+                            id: d.id,
+                            name: d.name,
+                            url: d.url,
+                            type: d.type || "PDF",
+                        }))
+                        : [],
                 }))
             );
 
@@ -284,6 +315,30 @@ export default function ProductGroupEditor({
                 setImages([{ url: group.imageUrl, isMain: true, displayOrder: 0 }]);
             } else {
                 setImages([]);
+            }
+
+            // Populate shared documents: Prioritize from products[0] or first product with docs
+            const prodWithDocs = products.find((p) => p.documents && p.documents.length > 0);
+            if (!isIndividualDocsMode && prodWithDocs?.documents && prodWithDocs.documents.length > 0) {
+                setDocuments(
+                    prodWithDocs.documents.map((doc: any) => ({
+                        id: doc.id,
+                        name: doc.name,
+                        url: doc.url,
+                        type: doc.type || "PDF",
+                    }))
+                );
+            } else if (group?.documents && group.documents.length > 0) {
+                setDocuments(
+                    group.documents.map((doc: any) => ({
+                        id: doc.id,
+                        name: doc.name,
+                        url: doc.url,
+                        type: doc.type || "PDF",
+                    }))
+                );
+            } else {
+                setDocuments([]);
             }
 
             // Populate description if missing on group but present on product
@@ -409,6 +464,14 @@ export default function ProductGroupEditor({
                         displayOrder: f.displayOrder || 0,
                     }))
                     : [],
+                documents: prod.documents && prod.documents.length > 0
+                    ? prod.documents.map((d: any) => ({
+                        id: d.id,
+                        name: d.name,
+                        url: d.url,
+                        type: d.type || "PDF",
+                    }))
+                    : [],
             },
         ]);
         setSelectedProductId("");
@@ -446,6 +509,14 @@ export default function ProductGroupEditor({
                         feature: f.feature,
                         description: f.description,
                         displayOrder: f.displayOrder || 0,
+                    }))
+                    : [],
+                documents: prod?.documents && prod.documents.length > 0
+                    ? prod.documents.map((d: any) => ({
+                        id: d.id,
+                        name: d.name,
+                        url: d.url,
+                        type: d.type || "PDF",
                     }))
                     : [],
             };
@@ -666,6 +737,125 @@ export default function ProductGroupEditor({
         setFeatures(features.filter((_, i) => i !== idx));
     };
 
+    // Document Handlers
+    const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        setIsUploadingDoc(true);
+        const files = Array.from(e.target.files);
+        const newDocs: GroupDocument[] = [];
+
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("type", "document");
+
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const ext = file.name.split(".").pop()?.toUpperCase() || "PDF";
+                    newDocs.push({
+                        name: file.name,
+                        url: data.url,
+                        type: ext,
+                    });
+                } else {
+                    console.error("Doküman yüklenirken hata oluştu:", file.name);
+                }
+            }
+
+            if (newDocs.length > 0) {
+                setDocuments((prev) => [...prev, ...newDocs]);
+            }
+        } catch (error) {
+            console.error("Document upload error:", error);
+            alert("Doküman yüklenirken hata oluştu.");
+        } finally {
+            setIsUploadingDoc(false);
+            e.target.value = "";
+        }
+    };
+
+    const handleRemoveDocument = (idx: number) => {
+        setDocuments((prev) => prev.filter((_, i) => i !== idx));
+    };
+
+    const handleUpdateDocumentName = (idx: number, newName: string) => {
+        setDocuments((prev) => {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], name: newName };
+            return updated;
+        });
+    };
+
+    const handleVariantDocumentUpload = async (variantIdx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        setIsUploadingVariantDoc(variantIdx);
+        const files = Array.from(e.target.files);
+        const newDocs: GroupDocument[] = [];
+
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("type", "document");
+
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const ext = file.name.split(".").pop()?.toUpperCase() || "PDF";
+                    newDocs.push({
+                        name: file.name,
+                        url: data.url,
+                        type: ext,
+                    });
+                } else {
+                    console.error("Varyant belgesi yüklenirken hata oluştu:", file.name);
+                }
+            }
+
+            if (newDocs.length > 0) {
+                setVariants((prev) => {
+                    const updated = [...prev];
+                    const existing = updated[variantIdx].documents || [];
+                    updated[variantIdx] = {
+                        ...updated[variantIdx],
+                        documents: [...existing, ...newDocs],
+                    };
+                    return updated;
+                });
+            }
+        } catch (error) {
+            console.error("Variant doc upload error:", error);
+            alert("Belge yüklenirken hata oluştu.");
+        } finally {
+            setIsUploadingVariantDoc(null);
+            e.target.value = "";
+        }
+    };
+
+    const handleRemoveVariantDocument = (variantIdx: number, docIdx: number) => {
+        setVariants((prev) => {
+            const updated = [...prev];
+            const existing = updated[variantIdx].documents || [];
+            updated[variantIdx] = {
+                ...updated[variantIdx],
+                documents: existing.filter((_, i) => i !== docIdx),
+            };
+            return updated;
+        });
+    };
+
     // Main Save & Sync
     const handleSaveGroupAndSync = async () => {
         if (!groupCode.trim()) {
@@ -686,14 +876,17 @@ export default function ProductGroupEditor({
                 description: groupDescription,
                 images,
                 features,
+                documents,
                 individualImages,
                 individualFeatures,
+                individualDocuments,
                 products: variants.map((v) => ({
                     ...v,
                     currencyId: v.currencyId ?? (v.currency === "$" ? 1 : v.currency === "€" ? 20 : 160),
                     currency: v.currency || (v.currencyId === 1 ? "$" : v.currencyId === 20 ? "€" : "₺"),
                     images: individualImages ? (v.images || []) : (v.images && v.images.length > 0 ? v.images : undefined),
                     features: individualFeatures ? (v.features || []) : (v.features && v.features.length > 0 ? v.features : undefined),
+                    documents: individualDocuments ? (v.documents || []) : documents,
                 })),
             };
 
@@ -706,11 +899,27 @@ export default function ProductGroupEditor({
                     } catch (err) {
                         console.error("Tier discounts save warning:", err);
                     }
+
+                    try {
+                        const productDocsMap: Record<number, any[]> = {};
+                        if (individualDocuments) {
+                            variants.forEach((v) => {
+                                productDocsMap[v.productId] = v.documents || [];
+                            });
+                        }
+                        await syncGroupDocumentsAction(
+                            targetGroupId,
+                            documents,
+                            individualDocuments ? productDocsMap : undefined
+                        );
+                    } catch (err) {
+                        console.error("Documents sync warning:", err);
+                    }
                 }
 
                 setStatusMessage({
                     type: "success",
-                    text: groupId > 0 ? "Tüm grup ortak detayları, iskontolar ve alt ürünler başarıyla güncellendi!" : "Yeni ürün grubu ve iskontolar başarıyla oluşturuldu!",
+                    text: groupId > 0 ? "Tüm grup ortak detayları, teknik dokümanlar, iskontolar ve alt ürünler başarıyla güncellendi!" : "Yeni ürün grubu, teknik dokümanlar ve iskontolar başarıyla oluşturuldu!",
                 });
                 if ((!groupId || groupId === 0) && res.group?.id) {
                     router.push(`/product-groups/${res.group.id}`);
@@ -939,7 +1148,7 @@ export default function ProductGroupEditor({
                 </div>
             </div>
 
-            {/* SECTION 3: Ortak Görseller ve Teknik Özellikler */}
+            {/* SECTION 3: Ortak Görseller ve Teknik Dokümanlar */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Images Manager */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
@@ -1116,77 +1325,123 @@ export default function ProductGroupEditor({
                     </div>
                 </div>
 
-                {/* Features Manager */}
+                {/* Documents Manager */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4 flex flex-col justify-between">
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-2">
-                                <Sliders className="w-5 h-5 text-red-600" />
-                                <h3 className="font-bold text-slate-900 text-base">Teknik Özellik Tablosu</h3>
+                                <FileText className="w-5 h-5 text-red-600" />
+                                <h3 className="font-bold text-slate-900 text-base">
+                                    Ortak Teknik Dokümanlar (PDF)
+                                </h3>
                             </div>
                             <div className="flex items-center gap-3">
-                                {/* Individual Features Toggle */}
+                                {/* Individual Documents Toggle */}
                                 <button
                                     type="button"
-                                    onClick={() => setIndividualFeatures(!individualFeatures)}
+                                    onClick={() => setIndividualDocuments(!individualDocuments)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
-                                        individualFeatures
+                                        individualDocuments
                                             ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
                                             : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
                                     }`}
-                                    title={individualFeatures ? "Bireysel özellikler aktif — her ürünün kendi teknik özellikleri olabilir" : "Tüm ürünler aynı özellikleri paylaşır"}
+                                    title={individualDocuments ? "Bireysel belgeler aktif — her varyantın kendi belgeleri olabilir" : "Tüm ürünler aynı belgeleri paylaşır"}
                                 >
-                                    {individualFeatures ? (
+                                    {individualDocuments ? (
                                         <ToggleRight className="w-4 h-4 text-amber-600" />
                                     ) : (
                                         <ToggleLeft className="w-4 h-4" />
                                     )}
-                                    {individualFeatures ? "Bireysel Özellikler Aktif" : "Bireysel Özellikler"}
+                                    {individualDocuments ? "Bireysel Belgeler Aktif" : "Bireysel Belgeler"}
                                 </button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleAddFeature}
-                                    className="text-xs text-red-600 border-red-200 hover:bg-red-50"
-                                >
-                                    <Plus className="w-3.5 h-3.5 mr-1" /> Özellik Ekle
-                                </Button>
+                                <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                                    {documents.length} Belge
+                                </span>
                             </div>
                         </div>
-                        {individualFeatures && (
+                        {individualDocuments && (
                             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                                 <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
                                 <p className="text-xs text-amber-700 leading-relaxed">
-                                    <strong>Bireysel teknik özellik modu aktif.</strong> Aşağıdaki ortak teknik özellikler varsayılan olarak gruba tanımlanır. Ek olarak, aşağıdaki ürün tablosunda her ürüne özel teknik özellik ekleyip düzenleyebilirsiniz.
+                                    <strong>Bireysel belge modu aktif.</strong> Aşağıdaki ortak belgeler varsayılan olarak gruba aittir. Ek olarak, aşağıdaki varyant tablosunda her varyanta özel teknik doküman/belge ekleyebilirsiniz.
                                 </p>
                             </div>
                         )}
 
-                        {features.length === 0 ? (
-                            <div className="p-8 text-center border border-slate-200 rounded-xl text-xs text-slate-400">
-                                Teknik özellik tanımlanmamış.
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                            Bu ürün grubuna dahil tüm ürünler için ortak kullanım kılavuzu, teknik şartname veya katalog PDF&apos;leri yükleyin.
+                        </p>
+
+                        {/* File Upload Drop Area */}
+                        <div>
+                            <label
+                                className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-300 transition-colors ${
+                                    isUploadingDoc ? "opacity-50 pointer-events-none" : ""
+                                }`}
+                            >
+                                <div className="flex flex-col items-center justify-center pt-4 pb-4">
+                                    {isUploadingDoc ? (
+                                        <Loader2 className="w-6 h-6 text-red-600 animate-spin mb-1" />
+                                    ) : (
+                                        <Upload className="w-6 h-6 text-slate-400 mb-1" />
+                                    )}
+                                    <p className="text-xs text-slate-700 font-bold">
+                                        {isUploadingDoc ? "Belgeler Yükleniyor..." : "Belge Seç & Yükle (PDF, DOC, DOCX)"}
+                                    </p>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">
+                                        Birden fazla dosya seçebilirsiniz
+                                    </p>
+                                </div>
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".pdf,.doc,.docx"
+                                    multiple
+                                    onChange={handleDocumentUpload}
+                                    disabled={isUploadingDoc}
+                                />
+                            </label>
+                        </div>
+
+                        {/* Documents List */}
+                        {documents.length === 0 ? (
+                            <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                                <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                <p className="text-xs text-slate-400">Grupta tanımlı ortak doküman bulunmuyor.</p>
                             </div>
                         ) : (
                             <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
-                                {features.map((feat, idx) => (
-                                    <div key={idx} className="flex gap-2 items-center">
-                                        <Input
-                                            placeholder="Özellik (Örn: Depo Hacmi)"
-                                            value={feat.feature}
-                                            onChange={(e) => handleUpdateFeature(idx, "feature", e.target.value)}
-                                            className="bg-slate-50 text-xs flex-1 border-slate-200"
-                                        />
-                                        <Input
-                                            placeholder="Değer (Örn: 600 cc)"
-                                            value={feat.description}
-                                            onChange={(e) => handleUpdateFeature(idx, "description", e.target.value)}
-                                            className="bg-slate-50 text-xs flex-1 border-slate-200"
-                                        />
+                                {documents.map((doc, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-3 p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition-colors"
+                                    >
+                                        <div className="w-9 h-9 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-semibold text-slate-900 truncate">
+                                                {doc.name}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.2 rounded">
+                                                    {doc.type || "PDF"}
+                                                </span>
+                                                <a
+                                                    href={getImageUrl(doc.url)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-[11px] text-blue-600 hover:underline flex items-center gap-0.5"
+                                                >
+                                                    <ExternalLink className="w-3 h-3" /> Görüntüle
+                                                </a>
+                                            </div>
+                                        </div>
                                         <button
                                             type="button"
-                                            onClick={() => handleRemoveFeature(idx)}
-                                            className="text-slate-400 hover:text-red-600 p-1.5 cursor-pointer"
+                                            onClick={() => handleRemoveDocument(idx)}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                            title="Belgeyi Sil"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -1198,14 +1453,96 @@ export default function ProductGroupEditor({
                 </div>
             </div>
 
-            {/* SECTION 4: Müşteri Grubu İskonto Oranları (S, A, B, P) */}
+            {/* SECTION 4: Ortak Teknik Özellik Tablosu */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                        <Sliders className="w-5 h-5 text-red-600" />
+                        <h3 className="font-bold text-slate-900 text-base">
+                            4. Ortak Teknik Özellik Tablosu
+                        </h3>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {/* Individual Features Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setIndividualFeatures(!individualFeatures)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                                individualFeatures
+                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                            }`}
+                            title={individualFeatures ? "Bireysel özellikler aktif — her ürünün kendi teknik özellikleri olabilir" : "Tüm ürünler aynı özellikleri paylaşır"}
+                        >
+                            {individualFeatures ? (
+                                <ToggleRight className="w-4 h-4 text-amber-600" />
+                            ) : (
+                                <ToggleLeft className="w-4 h-4" />
+                            )}
+                            {individualFeatures ? "Bireysel Özellikler Aktif" : "Bireysel Özellikler"}
+                        </button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAddFeature}
+                            className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                            <Plus className="w-3.5 h-3.5 mr-1" /> Özellik Ekle
+                        </Button>
+                    </div>
+                </div>
+                {individualFeatures && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-700 leading-relaxed">
+                            <strong>Bireysel teknik özellik modu aktif.</strong> Aşağıdaki ortak teknik özellikler varsayılan olarak gruba tanımlanır. Ek olarak, aşağıdaki ürün tablosunda her ürüne özel teknik özellik ekleyip düzenleyebilirsiniz.
+                        </p>
+                    </div>
+                )}
+
+                {features.length === 0 ? (
+                    <div className="p-8 text-center border border-slate-200 rounded-xl text-xs text-slate-400">
+                        Teknik özellik tanımlanmamış.
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[350px] overflow-y-auto pr-1">
+                        {features.map((feat, idx) => (
+                            <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                                <Input
+                                    placeholder="Özellik (Örn: Depo Hacmi)"
+                                    value={feat.feature}
+                                    onChange={(e) => handleUpdateFeature(idx, "feature", e.target.value)}
+                                    className="bg-white text-xs flex-1 border-slate-200"
+                                />
+                                <Input
+                                    placeholder="Değer (Örn: 600 cc)"
+                                    value={feat.description}
+                                    onChange={(e) => handleUpdateFeature(idx, "description", e.target.value)}
+                                    className="bg-white text-xs flex-1 border-slate-200"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveFeature(idx)}
+                                    className="text-slate-400 hover:text-red-600 p-1.5 cursor-pointer"
+                                    title="Özelliği Sil"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* SECTION 5: Müşteri Grubu İskonto Oranları (S, A, B, P) */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                         <Percent className="w-5 h-5 text-amber-600" />
                         <div>
                             <h3 className="font-bold text-slate-900 text-base">
-                                4. Müşteri Grubu İskonto Oranları (S, A, B, P)
+                                5. Müşteri Grubu İskonto Oranları (S, A, B, P)
                             </h3>
                         </div>
                     </div>
@@ -1499,13 +1836,13 @@ export default function ProductGroupEditor({
                 </div>
             </div>
 
-            {/* SECTION 5: Grup Ürünleri & Varyant Yönetimi (Bulk Update Table) */}
+            {/* SECTION 6: Grup Ürünleri & Varyant Yönetimi (Bulk Update Table) */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
                     <div>
                         <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
                             <Sparkles className="w-5 h-5 text-red-600" />
-                            Grup Ürünleri & Varyant Etiketleri (Toplu Güncelleme)
+                            6. Grup Ürünleri & Varyant Etiketleri (Toplu Güncelleme)
                         </h3>
                         <p className="text-xs text-slate-500 mt-1">
                             Aşağıdaki tabloda her bir ürünün farkını belirten Varyant Etiketini (`10 mm`, `15 mm` vb.), Kodunu, Fiyatını ve Stoğunu topluca güncelleyebilirsiniz.
@@ -1614,13 +1951,14 @@ export default function ProductGroupEditor({
                                     <th className="p-3.5 w-20 text-center">Durum</th>
                                     {individualImages && <th className="p-3.5 w-24 text-center">Resimler</th>}
                                     {individualFeatures && <th className="p-3.5 w-28 text-center">Özellikler</th>}
+                                    {individualDocuments && <th className="p-3.5 w-28 text-center">Belgeler</th>}
                                     <th className="p-3.5 text-right w-20">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
                                 {paginatedVariants.length === 0 ? (
                                     <tr>
-                                        <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
+                                        <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0) + (individualDocuments ? 1 : 0)} className="p-8 text-center text-slate-400 italic">
                                             {variantSearch ? "Aramanıza uygun ürün bulunamadı." : "Grupta henüz ürün bulunmuyor. Yukarıdan ürün seçip ekleyebilirsiniz."}
                                         </td>
                                     </tr>
@@ -1762,6 +2100,30 @@ export default function ProductGroupEditor({
                                                     </button>
                                                 </td>
                                             )}
+                                            {individualDocuments && (
+                                                <td className="p-3.5 text-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setExpandedVariantDocuments(expandedVariantDocuments === idx ? null : idx)}
+                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                                                            expandedVariantDocuments === idx
+                                                                ? "bg-amber-100 text-amber-700 border-amber-300"
+                                                                : (v.documents && v.documents.length > 0)
+                                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                                                    : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                                                        }`}
+                                                        title={`${(v.documents || []).length} bireysel teknik doküman`}
+                                                    >
+                                                        <FileText className="w-3.5 h-3.5" />
+                                                        {(v.documents || []).length}
+                                                        {expandedVariantDocuments === idx ? (
+                                                            <ChevronUp className="w-3 h-3" />
+                                                        ) : (
+                                                            <ChevronDown className="w-3 h-3" />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            )}
                                             <td className="p-3.5 text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button
@@ -1795,7 +2157,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Images Panel */}
                                         {individualImages && expandedVariantImages === idx && (
                                             <tr>
-                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0) + (individualDocuments ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1900,7 +2262,7 @@ export default function ProductGroupEditor({
                                         {/* Expandable Individual Features Panel */}
                                         {individualFeatures && expandedVariantFeatures === idx && (
                                             <tr>
-                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0)} className="p-0">
+                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0) + (individualDocuments ? 1 : 0)} className="p-0">
                                                     <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
                                                         <div className="flex items-center justify-between">
                                                             <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
@@ -1954,6 +2316,100 @@ export default function ProductGroupEditor({
                                                                             className="text-amber-400 hover:text-red-600 p-1.5 cursor-pointer"
                                                                         >
                                                                             <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {/* Expandable Individual Documents Panel */}
+                                        {individualDocuments && expandedVariantDocuments === idx && (
+                                            <tr>
+                                                <td colSpan={9 + (individualImages ? 1 : 0) + (individualFeatures ? 1 : 0) + (individualDocuments ? 1 : 0)} className="p-0">
+                                                    <div className="bg-amber-50/50 border-t border-b border-amber-200/60 px-5 py-4 space-y-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <h4 className="text-xs font-bold text-amber-800 flex items-center gap-1.5">
+                                                                <FileText className="w-4 h-4 text-amber-600" />
+                                                                {v.variantLabel || v.name || `Ürün #${v.productId}`} — Bireysel Teknik Dokümanlar
+                                                            </h4>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExpandedVariantDocuments(null)}
+                                                                className="p-1 text-amber-500 hover:text-amber-700 cursor-pointer"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Upload Button */}
+                                                        <div className="flex items-center gap-2">
+                                                            <label className="cursor-pointer bg-amber-600 hover:bg-amber-700 text-white text-xs px-3 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-all">
+                                                                {isUploadingVariantDoc === idx ? (
+                                                                    <>
+                                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                        Yükleniyor...
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Upload className="w-3.5 h-3.5" />
+                                                                        Belge Yükle (PDF, DOC)
+                                                                    </>
+                                                                )}
+                                                                <input
+                                                                    type="file"
+                                                                    multiple
+                                                                    accept=".pdf,.doc,.docx"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleVariantDocumentUpload(idx, e)}
+                                                                    disabled={isUploadingVariantDoc === idx}
+                                                                />
+                                                            </label>
+                                                        </div>
+
+                                                        {/* Document List */}
+                                                        {(!v.documents || v.documents.length === 0) ? (
+                                                            <div className="p-4 text-center border border-dashed border-amber-300 rounded-lg bg-amber-50/50">
+                                                                <FileText className="w-6 h-6 text-amber-300 mx-auto mb-1" />
+                                                                <p className="text-[11px] text-amber-500">Bu ürüne özel teknik doküman eklenmemiş.</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                                                {v.documents.map((doc, dIdx) => (
+                                                                    <div
+                                                                        key={dIdx}
+                                                                        className="flex items-center gap-2.5 p-2.5 bg-white border border-amber-200 rounded-xl shadow-2xs"
+                                                                    >
+                                                                        <div className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center shrink-0">
+                                                                            <FileText className="w-4 h-4" />
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="text-xs font-semibold text-slate-800 truncate">
+                                                                                {doc.name}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                                <span className="text-[9px] font-bold text-red-700 bg-red-50 border border-red-200 px-1 py-0.2 rounded">
+                                                                                    {doc.type || "PDF"}
+                                                                                </span>
+                                                                                <a
+                                                                                    href={getImageUrl(doc.url)}
+                                                                                    target="_blank"
+                                                                                    rel="noopener noreferrer"
+                                                                                    className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5"
+                                                                                >
+                                                                                    <ExternalLink className="w-2.5 h-2.5" /> Görüntüle
+                                                                                </a>
+                                                                            </div>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveVariantDocument(idx, dIdx)}
+                                                                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                                                                            title="Sil"
+                                                                        >
+                                                                            <Trash2 className="w-3.5 h-3.5" />
                                                                         </button>
                                                                     </div>
                                                                 ))}

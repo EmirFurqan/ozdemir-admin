@@ -1,4 +1,5 @@
 import { getProductGroupById, getGroupProducts } from "@/app/actions/productGroup";
+import { fetchAPI } from "@/app/lib/api";
 import { brandService } from "@/app/services/brandService";
 import { categoryService } from "@/app/services/categoryService";
 import ProductGroupEditor from "../ProductGroupEditor";
@@ -20,6 +21,18 @@ export default async function EditProductGroupPage({ params }: { params: Promise
 
     if (!group) {
         notFound();
+    }
+
+    // Ensure documents are populated from the first product if not already in groupProducts
+    if (groupProducts && groupProducts.length > 0 && (!groupProducts[0].documents || groupProducts[0].documents.length === 0)) {
+        try {
+            const firstProduct = await fetchAPI(`/products/${groupProducts[0].id}`);
+            if (firstProduct?.documents && firstProduct.documents.length > 0) {
+                groupProducts[0].documents = firstProduct.documents;
+            }
+        } catch (e) {
+            // Ignore if fails
+        }
     }
 
     const brands = Array.isArray(brandsData) ? brandsData : [];
