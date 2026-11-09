@@ -37,7 +37,8 @@ import {
     X,
     CheckSquare,
     Percent,
-    Tag
+    Tag,
+    Clipboard
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
 import ProductSelectModal from "./ProductSelectModal";
@@ -147,6 +148,15 @@ export default function ProductGroupEditor({
     const [individualDocuments, setIndividualDocuments] = useState(false);
     const [expandedVariantDocuments, setExpandedVariantDocuments] = useState<number | null>(null);
     const [isUploadingVariantDoc, setIsUploadingVariantDoc] = useState<number | null>(null);
+
+    // Bulk features paste state
+    const [showBulkPasteFeatures, setShowBulkPasteFeatures] = useState(false);
+    const [bulkPasteFeaturesContent, setBulkPasteFeaturesContent] = useState("");
+    const [bulkPasteReplaceExisting, setBulkPasteReplaceExisting] = useState(false);
+
+    // Variant individual features bulk paste
+    const [showVariantBulkPaste, setShowVariantBulkPaste] = useState<number | null>(null);
+    const [variantBulkPasteContent, setVariantBulkPasteContent] = useState("");
 
     // Product variants
     const [variants, setVariants] = useState<VariantProduct[]>([]);
@@ -735,6 +745,101 @@ export default function ProductGroupEditor({
 
     const handleRemoveFeature = (idx: number) => {
         setFeatures(features.filter((_, i) => i !== idx));
+    };
+
+    // Helper to parse pasted feature text (Excel tab, colon, multi-space, dash, semicolon)
+    const parseFeatureText = (text: string, startingOrder = 0): GroupFeature[] => {
+        if (!text.trim()) return [];
+        const lines = text.trim().split("\n");
+        const result: GroupFeature[] = [];
+        let order = startingOrder;
+
+        for (const rawLine of lines) {
+            const line = rawLine.trim();
+            if (!line) continue;
+
+            let key = "";
+            let val = "";
+
+            if (line.includes("\t")) {
+                const parts = line.split("\t");
+                key = parts[0]?.trim() || "";
+                val = parts.slice(1).join(" ").trim();
+            } else if (line.includes(":")) {
+                const colonIdx = line.indexOf(":");
+                key = line.slice(0, colonIdx).trim();
+                val = line.slice(colonIdx + 1).trim();
+            } else if (/\s{2,}/.test(line)) {
+                const parts = line.split(/\s{2,}/);
+                key = parts[0]?.trim() || "";
+                val = parts.slice(1).join(" ").trim();
+            } else if (line.includes(" - ")) {
+                const parts = line.split(" - ");
+                key = parts[0]?.trim() || "";
+                val = parts.slice(1).join(" - ").trim();
+            } else if (line.includes(";")) {
+                const parts = line.split(";");
+                key = parts[0]?.trim() || "";
+                val = parts.slice(1).join("; ").trim();
+            } else {
+                key = line;
+                val = "";
+            }
+
+            key = key.replace(/^[\s•\-\*]+/, "").replace(/^\d+[\.\)]\s*/, "").trim();
+
+            if (key) {
+                result.push({
+                    feature: key,
+                    description: val,
+                    displayOrder: order++,
+                });
+            }
+        }
+
+        return result;
+    };
+
+    const handleBulkPasteFeatures = () => {
+        const parsed = parseFeatureText(
+            bulkPasteFeaturesContent,
+            bulkPasteReplaceExisting ? 0 : features.length
+        );
+        if (parsed.length === 0) {
+            alert("Lütfen geçerli özellik formatında metin giriniz.");
+            return;
+        }
+
+        if (bulkPasteReplaceExisting) {
+            setFeatures(parsed);
+        } else {
+            setFeatures((prev) => [...prev, ...parsed]);
+        }
+
+        setBulkPasteFeaturesContent("");
+        setShowBulkPasteFeatures(false);
+    };
+
+    const handleVariantBulkPaste = (variantIdx: number) => {
+        const currentFeats = variants[variantIdx]?.features || [];
+        const parsed = parseFeatureText(variantBulkPasteContent, currentFeats.length);
+        if (parsed.length === 0) {
+            alert("Lütfen geçerli özellik formatında metin giriniz.");
+            return;
+        }
+
+        setVariants((prev) => {
+            const updated = [...prev];
+            const existing = updated[variantIdx].features || [];
+            updated[variantIdx] = {
+                ...updated[variantIdx],
+                features: [...existing, ...parsed],
+            };
+            return updated;
+        });
+
+        setVariantBulkPasteContent("");
+        setShowVariantBulkPaste(null);
     };
 
     // Document Handlers
@@ -1483,6 +1588,15 @@ export default function ProductGroupEditor({
                         </button>
                         <Button
                             type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setShowBulkPasteFeatures(!showBulkPasteFeatures)}
+                            className="text-xs bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 font-medium"
+                        >
+                            <Clipboard className="w-3.5 h-3.5 mr-1 text-slate-500" /> Toplu Özellik Ekle
+                        </Button>
+                        <Button
+                            type="button"
                             variant="outline"
                             size="sm"
                             onClick={handleAddFeature}
@@ -1492,6 +1606,65 @@ export default function ProductGroupEditor({
                         </Button>
                     </div>
                 </div>
+                {showBulkPasteFeatures && (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                <Clipboard className="w-4 h-4 text-red-600" />
+                                Toplu Özellik Yapıştırma
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowBulkPasteFeatures(false)}
+                                className="text-slate-400 hover:text-slate-600 p-1"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                            Excel, Google E-Tablolar veya ürün kataloğundan kopyaladığınız satırları buraya yapıştırın.
+                            <br />
+                            Format: <strong>Özellik [TAB] Değer</strong>, <strong>Özellik: Değer</strong> veya <strong>Özellik - Değer</strong>
+                        </p>
+                        <textarea
+                            value={bulkPasteFeaturesContent}
+                            onChange={(e) => setBulkPasteFeaturesContent(e.target.value)}
+                            placeholder={`Örnek:\nDepo Hacmi\t600 cc\nÇalışma Basıncı: 2.0 - 2.5 bar\nHava Girişi - 1/4"\nAğırlık\t450 gr`}
+                            rows={5}
+                            className="w-full p-3 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 focus:outline-none"
+                        />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={bulkPasteReplaceExisting}
+                                    onChange={(e) => setBulkPasteReplaceExisting(e.target.checked)}
+                                    className="rounded border-slate-300 text-red-600 focus:ring-red-500/20"
+                                />
+                                <span>Mevcut {features.length} özelliği temizle, sadece bunları ekle</span>
+                            </label>
+                            <div className="flex items-center justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setShowBulkPasteFeatures(false)}
+                                    className="text-xs text-slate-600"
+                                >
+                                    Vazgeç
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={handleBulkPasteFeatures}
+                                    className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 cursor-pointer"
+                                >
+                                    Listeye Aktar
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {individualFeatures && (
                     <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                         <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -2274,6 +2447,15 @@ export default function ProductGroupEditor({
                                                                     type="button"
                                                                     variant="outline"
                                                                     size="sm"
+                                                                    onClick={() => setShowVariantBulkPaste(showVariantBulkPaste === idx ? null : idx)}
+                                                                    className="text-xs text-amber-800 border-amber-300 hover:bg-amber-100 bg-white"
+                                                                >
+                                                                    <Clipboard className="w-3.5 h-3.5 mr-1 text-amber-600" /> Toplu Ekle
+                                                                </Button>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    size="sm"
                                                                     onClick={() => handleAddVariantFeature(idx)}
                                                                     className="text-xs text-amber-700 border-amber-300 hover:bg-amber-100 bg-white"
                                                                 >
@@ -2288,6 +2470,40 @@ export default function ProductGroupEditor({
                                                                 </button>
                                                             </div>
                                                         </div>
+
+                                                        {showVariantBulkPaste === idx && (
+                                                            <div className="p-3 bg-white rounded-lg border border-amber-300 space-y-2">
+                                                                <p className="text-[11px] text-amber-800">
+                                                                    Excel veya metinden kopyaladığınız satırları yapıştırın (<strong>Özellik [TAB] Değer</strong> veya <strong>Özellik: Değer</strong>).
+                                                                </p>
+                                                                <textarea
+                                                                    value={variantBulkPasteContent}
+                                                                    onChange={(e) => setVariantBulkPasteContent(e.target.value)}
+                                                                    placeholder={`Meme Çapı\t1.3 mm\nAtım Genişliği: 280 mm`}
+                                                                    rows={3}
+                                                                    className="w-full p-2 text-xs font-mono bg-amber-50/30 border border-amber-200 rounded focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                                                />
+                                                                <div className="flex justify-end gap-2">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => setShowVariantBulkPaste(null)}
+                                                                        className="text-xs h-7"
+                                                                    >
+                                                                        Vazgeç
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        onClick={() => handleVariantBulkPaste(idx)}
+                                                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 px-3 cursor-pointer"
+                                                                    >
+                                                                        Ekle
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {(!v.features || v.features.length === 0) ? (
                                                             <div className="p-4 text-center border border-dashed border-amber-300 rounded-lg bg-amber-50/50">
