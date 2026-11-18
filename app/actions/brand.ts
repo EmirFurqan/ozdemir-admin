@@ -10,12 +10,17 @@ export async function saveBrand(prevState: any, formData: FormData) {
     const name = formData.get("name") as string;
     const logoName = formData.get("logoName") as string;
     const description = formData.get("description") as string;
+    const displayOrderRaw = formData.get("displayOrder") as string;
 
-    const data = {
+    const data: any = {
         name,
         logoName,
         description,
     };
+
+    if (displayOrderRaw && !isNaN(Number(displayOrderRaw)) && Number(displayOrderRaw) > 0) {
+        data.displayOrder = Number(displayOrderRaw);
+    }
 
     try {
         if (id && id !== "new") {

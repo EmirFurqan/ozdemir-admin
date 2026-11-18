@@ -70,6 +70,7 @@ export default function CategoryForm({
             <div className="p-8 space-y-8">
                 <input type="hidden" name="id" value={category?.id || "new"} />
                 <input type="hidden" name="imageUrl" value={imageUrl} />
+                <input type="hidden" name="displayOrder" value={category?.displayOrder || ""} />
 
                 <div className="grid gap-8 md:grid-cols-2">
                     <div className="space-y-6">

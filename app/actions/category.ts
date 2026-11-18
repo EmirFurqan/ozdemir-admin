@@ -10,11 +10,16 @@ export async function saveCategory(prevState: any, formData: FormData) {
     const name = formData.get("name") as string;
     const imageUrl = formData.get("imageUrl") as string;
     const brandId = formData.get("brandId") as string;
+    const displayOrderRaw = formData.get("displayOrder") as string;
 
     const data: any = {
         name,
         imageUrl,
     };
+
+    if (displayOrderRaw && !isNaN(Number(displayOrderRaw)) && Number(displayOrderRaw) > 0) {
+        data.displayOrder = Number(displayOrderRaw);
+    }
 
     if (brandId) {
         data.brand = { id: Number(brandId) };
@@ -32,7 +37,7 @@ export async function saveCategory(prevState: any, formData: FormData) {
         return { success: false, message: "Kategori kaydedilemedi." };
     }
 
-    redirect("/categories");
+    redirect(brandId ? `/categories?brandId=${brandId}` : "/categories");
 }
 
 export async function reorderCategoriesAction(categoryIds: number[]) {

@@ -57,6 +57,7 @@ export default function BrandForm({ brand }: { brand?: Brands }) {
             <div className="p-8 space-y-8">
                 <input type="hidden" name="id" value={brand?.id || "new"} />
                 <input type="hidden" name="logoName" value={logoName} />
+                <input type="hidden" name="displayOrder" value={brand?.displayOrder || ""} />
 
                 <div className="grid gap-8 md:grid-cols-2">
                     <div className="space-y-6">
