@@ -214,6 +214,46 @@ export async function bulkAssignGroupAction(payload: any) {
     }
 }
 
+export async function syncGroupDocumentsAction(
+    groupId: number,
+    documents: any[],
+    productDocumentsMap?: Record<number, any[]>
+) {
+    try {
+        if (!groupId) return { success: true };
+        const products = await getGroupProducts(groupId);
+        if (!Array.isArray(products) || products.length === 0) return { success: true };
+
+        await Promise.all(
+            products.map(async (p: any) => {
+                try {
+                    const docsToSet = productDocumentsMap && productDocumentsMap[p.id] !== undefined
+                        ? productDocumentsMap[p.id]
+                        : documents;
+
+                    const fullProduct = await fetchAPI(`/products/${p.id}`);
+                    if (!fullProduct) return;
+                    await fetchAPI(`/products/${p.id}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            ...fullProduct,
+                            documents: docsToSet,
+                        }),
+                    });
+                } catch (e) {
+                    console.error(`Failed to update documents for product ${p.id}:`, e);
+                }
+            })
+        );
+        revalidatePath(`/product-groups/${groupId}`);
+        return { success: true };
+    } catch (err: any) {
+        console.error("Failed to sync group documents:", err);
+        return { success: false, message: err.message };
+    }
+}
+
 export async function deleteProductGroupAction(id: number) {
     try {
         await fetchAPI(`/product-groups/${id}`, {

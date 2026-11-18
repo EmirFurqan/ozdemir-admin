@@ -160,7 +160,7 @@ export default async function ProductsPage({
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Link href="/products/group-manager" className={cn(buttonVariants({ variant: "outline" }), "border-slate-300 text-slate-700 hover:bg-slate-50")}>
+                    <Link href="/product-groups" className={cn(buttonVariants({ variant: "outline" }), "border-slate-300 text-slate-700 hover:bg-slate-50")}>
                         <Package className="w-4 h-4 mr-2" />
                         Grup Yöneticisi
                     </Link>
