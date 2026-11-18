@@ -34,3 +34,25 @@ export async function saveCategory(prevState: any, formData: FormData) {
 
     redirect("/categories");
 }
+
+export async function reorderCategoriesAction(categoryIds: number[]) {
+    try {
+        await categoryService.reorderCategories(categoryIds);
+        revalidatePath("/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to reorder categories:", error);
+        return { success: false, message: "Kategori sıralaması kaydedilemedi." };
+    }
+}
+
+export async function deleteCategoryAction(id: number) {
+    try {
+        await categoryService.deleteCategory(id);
+        revalidatePath("/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete category:", error);
+        return { success: false, message: "Kategori silinemedi." };
+    }
+}

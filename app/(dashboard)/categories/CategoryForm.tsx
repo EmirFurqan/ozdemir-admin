@@ -7,7 +7,15 @@ import { saveCategory } from "@/app/actions/category";
 import { Category } from "@/app/services/categoryService";
 import { Brands } from "@/app/services/brandService";
 
-export default function CategoryForm({ category, brands }: { category?: Category; brands?: Brands[] }) {
+export default function CategoryForm({
+    category,
+    brands,
+    defaultBrandId,
+}: {
+    category?: Category;
+    brands?: Brands[];
+    defaultBrandId?: string;
+}) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080/api";
     const [state, formAction] = useActionState(saveCategory, { message: "", success: false });
     const [imageUrl, setImageUrl] = useState<string>(category?.imageUrl || "");
@@ -19,7 +27,9 @@ export default function CategoryForm({ category, brands }: { category?: Category
         return `${baseUrl}/uploads/${category.imageUrl}`;
     });
     const [uploading, setUploading] = useState(false);
-    const [brandId, setBrandId] = useState<string>(category?.brand?.id?.toString() || "");
+    const [brandId, setBrandId] = useState<string>(
+        category?.brand?.id?.toString() || defaultBrandId || ""
+    );
     const [dimensionWarning, setDimensionWarning] = useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

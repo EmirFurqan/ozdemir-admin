@@ -5,6 +5,7 @@ export interface Category {
     name: string;
     slug: string;
     imageUrl?: string;
+    displayOrder?: number;
     brand?: {
         id: number;
         name: string;
@@ -54,6 +55,12 @@ export const categoryService = {
     deleteCategory: async (id: number) => {
         return fetchAPI(`/categories/${id}`, {
             method: "DELETE",
+        });
+    },
+    reorderCategories: async (categoryIds: number[]) => {
+        return fetchAPI("/categories/reorder", {
+            method: "POST",
+            body: JSON.stringify(categoryIds),
         });
     },
 };

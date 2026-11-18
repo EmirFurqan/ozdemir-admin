@@ -3,9 +3,11 @@ import { fetchAPI } from "../lib/api";
 export interface Brands {
     id: number;
     name: string;
+    slug?: string;
     logoName: string;
     logoUrl: string;
     description: string;
+    displayOrder?: number;
 }
 
 export interface Category {
@@ -45,6 +47,12 @@ export const brandService = {
     deleteBrand: async (id: number) => {
         return fetchAPI(`/brands/${id}`, {
             method: "DELETE",
+        });
+    },
+    reorderBrands: async (brandIds: number[]) => {
+        return fetchAPI("/brands/reorder", {
+            method: "POST",
+            body: JSON.stringify(brandIds),
         });
     },
     uploadImage: async (file: File) => {

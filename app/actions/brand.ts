@@ -31,3 +31,27 @@ export async function saveBrand(prevState: any, formData: FormData) {
 
     redirect("/brands");
 }
+
+export async function reorderBrandsAction(brandIds: number[]) {
+    try {
+        await brandService.reorderBrands(brandIds);
+        revalidatePath("/brands");
+        revalidatePath("/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to reorder brands:", error);
+        return { success: false, message: "Marka sıralaması kaydedilemedi." };
+    }
+}
+
+export async function deleteBrandAction(id: number) {
+    try {
+        await brandService.deleteBrand(id);
+        revalidatePath("/brands");
+        revalidatePath("/categories");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete brand:", error);
+        return { success: false, message: "Marka silinemedi." };
+    }
+}
